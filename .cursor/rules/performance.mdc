@@ -1,8 +1,6 @@
 ---
-description: performance
-alwaysApply: true
-globs:
-  - "**/*"
+description: performance (optional)
+alwaysApply: false
 ---
 
 # Performance Optimization

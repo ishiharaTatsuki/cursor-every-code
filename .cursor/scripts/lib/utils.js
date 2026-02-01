@@ -24,7 +24,7 @@ function getHomeDir() {
  * Get the Claude config directory
  */
 function getClaudeDir() {
-  return path.join(getHomeDir(), '.cursor');
+  return path.join(getHomeDir(), '.claude');
 }
 
 /**
@@ -102,7 +102,7 @@ function getProjectName() {
  * Returns last 8 characters, falls back to project name then 'default'
  */
 function getSessionIdShort(fallback = 'default') {
-  const sessionId = process.env.cursor_SESSION_ID;
+  const sessionId = process.env.CLAUDE_SESSION_ID;
   if (sessionId && sessionId.length > 0) {
     return sessionId.slice(-8);
   }

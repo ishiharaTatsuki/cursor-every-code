@@ -1,0 +1,28 @@
+{
+  "name": "full",
+  "description": "Enable every shipped skill",
+  "skills": [
+    "backend-patterns",
+    "clickhouse-io",
+    "coding-standards",
+    "continuous-learning",
+    "continuous-learning-v2",
+    "eval-harness",
+    "frontend-patterns",
+    "golang-patterns",
+    "golang-testing",
+    "iterative-retrieval",
+    "java-coding-standards",
+    "jpa-patterns",
+    "postgres-patterns",
+    "project-guidelines-example",
+    "security-review",
+    "springboot-patterns",
+    "springboot-security",
+    "springboot-tdd",
+    "springboot-verification",
+    "strategic-compact",
+    "tdd-workflow",
+    "verification-loop"
+  ]
+}

@@ -1,0 +1,15 @@
+---
+description: python testing
+alwaysApply: false
+globs:
+  - "**/*.py"
+  - "tests/**/*.py"
+---
+
+# Python Testing
+
+- Use `pytest` as the default test runner.
+- When fixing a bug: write a failing test first, then fix.
+- Keep tests deterministic (no network/time dependency by default).
+- Prefer fixtures for setup/teardown; avoid shared mutable global state.
+- Separate unit vs integration tests (e.g., markers like `@pytest.mark.integration`).

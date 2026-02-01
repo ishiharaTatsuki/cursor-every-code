@@ -227,8 +227,8 @@ async function demo() {
   ]);
 
   output.output(
-    '.cursor/skills/pmx-patterns/SKILL.md',
-    '.cursor/homunculus/instincts/inherited/pmx-instincts.yaml'
+    '.claude/skills/pmx-patterns/SKILL.md',
+    '.claude/homunculus/instincts/inherited/pmx-instincts.yaml'
   );
 
   output.nextSteps();

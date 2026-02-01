@@ -1,0 +1,16 @@
+---
+description: python style
+alwaysApply: false
+globs:
+  - "**/*.py"
+  - "**/*.pyi"
+---
+
+# Python Style
+
+- Prefer `ruff format` and `ruff check` as the default formatter/linter when available.
+- Use type hints for public APIs; avoid `Any` unless justified.
+- Avoid mutable default arguments (e.g., `def f(x=[])`).
+- Avoid side effects at import time.
+- Prefer `pathlib.Path` over string paths.
+- Use `logging` (not `print`) for non-CLI code.

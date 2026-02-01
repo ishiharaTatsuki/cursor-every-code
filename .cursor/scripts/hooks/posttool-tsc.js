@@ -4,6 +4,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
+const { getPackageManager } = require("../lib/package-manager");
 
 function readStdinJson() {
   try {
@@ -23,6 +24,15 @@ function fileExists(p) {
   }
 }
 
+function resolveLocalBin(projectDir, name) {
+  const base = path.join(projectDir, "node_modules", ".bin");
+  const unix = path.join(base, name);
+  const win = path.join(base, `${name}.cmd`);
+  if (fileExists(unix)) return unix;
+  if (fileExists(win)) return win;
+  return "";
+}
+
 function findUp(dir, filename) {
   let cur = dir;
   while (true) {
@@ -39,7 +49,7 @@ function main() {
   const p = String(input?.tool_input?.file_path || "");
   if (!p || !/\.(ts|tsx)$/.test(p)) process.exit(0);
 
-  const projectDir = process.env.cursor_PROJECT_DIR || process.cwd();
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const abs = path.isAbsolute(p) ? p : path.join(projectDir, p);
   if (!fileExists(abs)) process.exit(0);
 
@@ -49,14 +59,45 @@ function main() {
 
   const cwd = path.dirname(tsconfig);
 
+  // Prefer local tsc from node_modules to avoid downloads.
+  const localTsc = resolveLocalBin(projectDir, "tsc");
+
   let stdout = "";
   let stderr = "";
   try {
-    stdout = execFileSync("npx", ["tsc", "--noEmit", "--pretty", "false"], {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    if (localTsc) {
+      stdout = execFileSync(localTsc, ["--noEmit", "--pretty", "false"], {
+        cwd,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 60000,
+      });
+    } else {
+      const pm = getPackageManager({ projectDir }).name;
+      if (pm === "pnpm") {
+        stdout = execFileSync("pnpm", ["exec", "tsc", "--noEmit", "--pretty", "false"], {
+          cwd,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 60000,
+        });
+      } else if (pm === "yarn") {
+        stdout = execFileSync("yarn", ["tsc", "--noEmit", "--pretty", "false"], {
+          cwd,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 60000,
+        });
+      } else {
+        // npm default: avoid auto-install
+        stdout = execFileSync("npx", ["--no-install", "tsc", "--noEmit", "--pretty", "false"], {
+          cwd,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 60000,
+        });
+      }
+    }
   } catch (e) {
     stdout = String(e.stdout || "");
     stderr = String(e.stderr || "");

@@ -33,7 +33,7 @@ function main() {
   if (/^(README|CLAUDE|AGENTS|CONTRIBUTING)\.md$/i.test(base)) process.exit(0);
 
   // Allow overwriting an existing file (some tools use Write even for updates)
-  const projectDir = process.env.cursor_PROJECT_DIR || process.cwd();
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const abs = path.isAbsolute(filePath) ? filePath : path.join(projectDir, filePath);
   if (fileExists(abs)) process.exit(0);
 

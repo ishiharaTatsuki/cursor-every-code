@@ -27,7 +27,7 @@ function main() {
   const p = String(input?.tool_input?.file_path || "");
   if (!p || !/\.(ts|tsx|js|jsx)$/.test(p)) process.exit(0);
 
-  const projectDir = process.env.cursor_PROJECT_DIR || process.cwd();
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const abs = path.isAbsolute(p) ? p : path.join(projectDir, p);
   if (!fileExists(abs)) process.exit(0);
 

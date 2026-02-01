@@ -2,6 +2,7 @@
 "use strict";
 
 const fs = require("fs");
+const { getPackageManager } = require("../lib/package-manager");
 
 function readStdinJson() {
   try {
@@ -23,8 +24,13 @@ function main() {
   // Allow when already inside tmux
   if (process.env.TMUX) process.exit(0);
 
+  // Best-effort: suggest the correct dev command for the repo
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const pm = getPackageManager({ projectDir });
+  const devCmd = pm?.config?.devCmd || "npm run dev";
+
   console.error("[Hook] BLOCKED: Dev server must run in tmux for log access");
-  console.error("[Hook] Use: tmux new-session -d -s dev \"npm run dev\"");
+  console.error(`[Hook] Use: tmux new-session -d -s dev \"${devCmd}\"`);
   console.error("[Hook] Then: tmux attach -t dev");
 
   // Claude Code: exit 2 blocks the tool call.

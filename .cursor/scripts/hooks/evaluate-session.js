@@ -50,7 +50,7 @@ async function main() {
   ensureDir(learnedSkillsPath);
 
   // Get transcript path from environment (set by Claude Code)
-  const transcriptPath = process.env.cursor_TRANSCRIPT_PATH;
+  const transcriptPath = process.env.CLAUDE_TRANSCRIPT_PATH;
 
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
     process.exit(0);
