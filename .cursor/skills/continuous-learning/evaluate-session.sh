@@ -6,7 +6,7 @@
 # - Stop runs once at session end (lightweight)
 # - UserPromptSubmit runs every message (heavy, adds latency)
 #
-# Recommended hook config (project-level .claude/settings.json):
+# Recommended hook config (project-level .cursor/settings.json):
 # {
 #   "hooks": {
 #     "Stop": [{
@@ -74,7 +74,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Determine project root:
 # 1) CLAUDE_PROJECT_DIR if set
 # 2) git root (from script location)
-# 3) walk up until .git/.claude/.cursor found
+# 3) walk up until .git/.cursor/.cursor found
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-}"
 if [ -z "$PROJECT_ROOT" ]; then
   if has_cmd git; then
@@ -85,7 +85,7 @@ if [ -z "$PROJECT_ROOT" ]; then
   d="$SCRIPT_DIR"
   PROJECT_ROOT="$SCRIPT_DIR"
   while [ "$d" != "/" ] && [ "$d" != "$(dirname "$d")" ]; do
-    if [ -d "$d/.git" ] || [ -d "$d/.claude" ] || [ -d "$d/.cursor" ]; then
+    if [ -d "$d/.git" ] || [ -d "$d/.cursor" ] || [ -d "$d/.cursor" ]; then
       PROJECT_ROOT="$d"
       break
     fi
@@ -96,7 +96,7 @@ fi
 CONFIG_FILE="$SCRIPT_DIR/config.json"
 
 DEFAULT_MIN_SESSION_LENGTH=10
-DEFAULT_LEARNED_REL=".claude/skills/learned/"
+DEFAULT_LEARNED_REL=".cursor/skills/learned/"
 
 MIN_SESSION_LENGTH="$DEFAULT_MIN_SESSION_LENGTH"
 LEARNED_SKILLS_PATH="$PROJECT_ROOT/${DEFAULT_LEARNED_REL%/}"

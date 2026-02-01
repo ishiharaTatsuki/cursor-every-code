@@ -4,7 +4,7 @@
 # Captures tool use events for pattern analysis.
 # Claude Code passes hook data via stdin as JSON.
 #
-# Hook config (in ./.claude/settings.json):
+# Hook config (in ./.cursor/settings.json):
 #
 # If installed as a plugin, use ${CLAUDE_PLUGIN_ROOT}:
 # {
@@ -20,23 +20,23 @@
 #   }
 # }
 #
-# If installed manually to ./.claude/skills:
+# If installed manually to ./.cursor/skills:
 # {
 #   "hooks": {
 #     "PreToolUse": [{
 #       "matcher": "*",
-#       "hooks": [{ "type": "command", "command": "./.claude/skills/continuous-learning-v2/hooks/observe.sh pre" }]
+#       "hooks": [{ "type": "command", "command": "./.cursor/skills/continuous-learning-v2/hooks/observe.sh pre" }]
 #     }],
 #     "PostToolUse": [{
 #       "matcher": "*",
-#       "hooks": [{ "type": "command", "command": "./.claude/skills/continuous-learning-v2/hooks/observe.sh post" }]
+#       "hooks": [{ "type": "command", "command": "./.cursor/skills/continuous-learning-v2/hooks/observe.sh post" }]
 #     }]
 #   }
 # }
 
 set -e
 
-CONFIG_DIR="./.claude/homunculus"
+CONFIG_DIR="./.cursor/homunculus"
 OBSERVATIONS_FILE="${CONFIG_DIR}/observations.jsonl"
 MAX_FILE_SIZE_MB=10
 

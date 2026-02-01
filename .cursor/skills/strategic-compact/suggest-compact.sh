@@ -8,14 +8,14 @@
 # - Compact after exploration, before execution
 # - Compact after completing a milestone, before starting next
 #
-# Hook config (in ./.claude/settings.json):
+# Hook config (in ./.cursor/settings.json):
 # {
 #   "hooks": {
 #     "PreToolUse": [{
 #       "matcher": "Edit|Write",
 #       "hooks": [{
 #         "type": "command",
-#         "command": "./.claude/skills/strategic-compact/suggest-compact.sh"
+#         "command": "./.cursor/skills/strategic-compact/suggest-compact.sh"
 #       }]
 #     }]
 #   }

@@ -29,7 +29,7 @@ The `suggest-compact.sh` script runs on PreToolUse (Edit/Write) and:
 
 ## Hook Setup
 
-Add to your `./.claude/settings.json`:
+Add to your `./.cursor/settings.json`:
 
 ```json
 {
@@ -38,7 +38,7 @@ Add to your `./.claude/settings.json`:
       "matcher": "tool == \"Edit\" || tool == \"Write\"",
       "hooks": [{
         "type": "command",
-        "command": "./.claude/skills/strategic-compact/suggest-compact.sh"
+        "command": "./.cursor/skills/strategic-compact/suggest-compact.sh"
       }]
     }]
   }

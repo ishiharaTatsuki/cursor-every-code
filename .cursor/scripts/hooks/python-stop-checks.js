@@ -124,7 +124,7 @@ function hasPytestConfig(projectDir) {
 }
 
 function main() {
-    const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+    const projectDir = process.env.cursor_PROJECT_DIR || process.cwd();
     const stateDir = path.join(projectDir, ".cursor", ".hook_state");
     const stateFile = path.join(stateDir, "py_changed_files.json");
     ensureDir(stateDir);

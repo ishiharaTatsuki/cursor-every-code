@@ -323,4 +323,4 @@ This command invokes the `tdd-guide` agent located at:
 `./.cursor/agents/tdd-guide.md`
 
 And can reference the `tdd-workflow` skill at:
-`./.claude/skills/tdd-workflow/`
+`./.cursor/skills/tdd-workflow/`

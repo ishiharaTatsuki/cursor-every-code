@@ -126,7 +126,7 @@ function main() {
 
     if (!filePath || !/\.(py|pyi)$/.test(filePath)) process.exit(0);
 
-    const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+    const projectDir = process.env.cursor_PROJECT_DIR || process.cwd();
     const stateDir = path.join(projectDir, ".cursor", ".hook_state");
     const stateFile = path.join(stateDir, "py_changed_files.json");
     ensureDir(stateDir);

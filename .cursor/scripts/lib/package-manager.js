@@ -145,10 +145,10 @@ function getAvailablePackageManagers() {
  *
  * Detection priority:
  * 1. Environment variable CLAUDE_PACKAGE_MANAGER
- * 2. Project-specific config (in .claude/package-manager.json)
+ * 2. Project-specific config (in .cursor/package-manager.json)
  * 3. package.json packageManager field
  * 4. Lock file detection
- * 5. Global user preference (in ./.claude/package-manager.json)
+ * 5. Global user preference (in ./.cursor/package-manager.json)
  * 6. First available package manager (by priority)
  *
  * @param {object} options - { projectDir, fallbackOrder }
@@ -158,7 +158,7 @@ function getPackageManager(options = {}) {
   const { projectDir = process.cwd(), fallbackOrder = DETECTION_PRIORITY } = options;
 
   // 1. Check environment variable
-  const envPm = process.env.CLAUDE_PACKAGE_MANAGER;
+  const envPm = process.env.cursor_PACKAGE_MANAGER;
   if (envPm && PACKAGE_MANAGERS[envPm]) {
     return {
       name: envPm,
@@ -168,7 +168,7 @@ function getPackageManager(options = {}) {
   }
 
   // 2. Check project-specific config
-  const projectConfigPath = path.join(projectDir, '.claude', 'package-manager.json');
+  const projectConfigPath = path.join(projectDir, '.cursor', 'package-manager.json');
   const projectConfig = readFile(projectConfigPath);
   if (projectConfig) {
     try {
@@ -259,7 +259,7 @@ function setProjectPackageManager(pmName, projectDir = process.cwd()) {
     throw new Error(`Unknown package manager: ${pmName}`);
   }
 
-  const configDir = path.join(projectDir, '.claude');
+  const configDir = path.join(projectDir, '.cursor');
   const configPath = path.join(configDir, 'package-manager.json');
 
   const config = {
@@ -320,7 +320,7 @@ function getSelectionPrompt() {
 
   message += '\nTo set your preferred package manager:\n';
   message += '  - Global: Set CLAUDE_PACKAGE_MANAGER environment variable\n';
-  message += '  - Or add to ./.claude/package-manager.json: {"packageManager": "pnpm"}\n';
+  message += '  - Or add to ./.cursor/package-manager.json: {"packageManager": "pnpm"}\n';
   message += '  - Or add to package.json: {"packageManager": "pnpm@8"}\n';
 
   return message;

@@ -6,10 +6,10 @@
  * Can be run directly or via the /setup-pm command.
  *
  * Usage:
- *   node scripts/setup-package-manager.js [pm-name]
- *   node scripts/setup-package-manager.js --detect
- *   node scripts/setup-package-manager.js --global pnpm
- *   node scripts/setup-package-manager.js --project bun
+ *   node .cursor/scripts/setup-package-manager.js [pm-name]
+ *   node .cursor/scripts/setup-package-manager.js --detect
+ *   node .cursor/scripts/setup-package-manager.js --global pnpm
+ *   node .cursor/scripts/setup-package-manager.js --project bun
  */
 
 const {
@@ -27,12 +27,12 @@ function showHelp() {
 Package Manager Setup for Claude Code
 
 Usage:
-  node scripts/setup-package-manager.js [options] [package-manager]
+  node .cursor/scripts/setup-package-manager.js [options] [package-manager]
 
 Options:
   --detect        Detect and show current package manager
-  --global <pm>   Set global preference (saves to ./.claude/package-manager.json)
-  --project <pm>  Set project preference (saves to .claude/package-manager.json)
+  --global <pm>   Set global preference (saves to ./.cursor/package-manager.json)
+  --project <pm>  Set project preference (saves to .cursor/package-manager.json)
   --list          List available package managers
   --help          Show this help message
 
@@ -44,16 +44,16 @@ Package Managers:
 
 Examples:
   # Detect current package manager
-  node scripts/setup-package-manager.js --detect
+  node .cursor/scripts/setup-package-manager.js --detect
 
   # Set pnpm as global preference
-  node scripts/setup-package-manager.js --global pnpm
+  node .cursor/scripts/setup-package-manager.js --global pnpm
 
   # Set bun for current project
-  node scripts/setup-package-manager.js --project bun
+  node .cursor/scripts/setup-package-manager.js --project bun
 
   # List available package managers
-  node scripts/setup-package-manager.js --list
+  node .cursor/scripts/setup-package-manager.js --list
 `);
 }
 
@@ -73,7 +73,7 @@ function detectAndShow() {
   console.log('Detection results:');
   console.log(`  From package.json: ${fromPkg || 'not specified'}`);
   console.log(`  From lock file: ${fromLock || 'not found'}`);
-  console.log(`  Environment var: ${process.env.CLAUDE_PACKAGE_MANAGER || 'not set'}`);
+  console.log(`  Environment var: ${process.env.cursor_PACKAGE_MANAGER || 'not set'}`);
   console.log('');
 
   console.log('Available package managers:');
@@ -127,7 +127,7 @@ function setGlobal(pmName) {
   try {
     setPreferredPackageManager(pmName);
     console.log(`\n✓ Global preference set to: ${pmName}`);
-    console.log('  Saved to: ./.claude/package-manager.json');
+    console.log('  Saved to: ./.cursor/package-manager.json');
     console.log('');
   } catch (err) {
     console.error(`Error: ${err.message}`);
@@ -145,7 +145,7 @@ function setProject(pmName) {
   try {
     setProjectPackageManager(pmName);
     console.log(`\n✓ Project preference set to: ${pmName}`);
-    console.log('  Saved to: .claude/package-manager.json');
+    console.log('  Saved to: .cursor/package-manager.json');
     console.log('');
   } catch (err) {
     console.error(`Error: ${err.message}`);
