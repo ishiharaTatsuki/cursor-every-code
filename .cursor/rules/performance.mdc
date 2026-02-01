@@ -9,17 +9,17 @@ globs:
 
 ## Model Selection Strategy
 
-**Haiku 4.5** (90% of Sonnet capability, 3x cost savings):
+**Composer 1 4.5** (90% of Sonnet capability, 3x cost savings):
 - Lightweight agents with frequent invocation
 - Pair programming and code generation
 - Worker agents in multi-agent systems
 
-**Sonnet 4.5** (Best coding model):
+**GPT-5.2 Codex High** (Best coding model):
 - Main development work
 - Orchestrating multi-agent workflows
 - Complex coding tasks
 
-**Opus 4.5** (Deepest reasoning):
+**GPT-5.2** (Deepest reasoning):
 - Complex architectural decisions
 - Maximum reasoning requirements
 - Research and analysis tasks

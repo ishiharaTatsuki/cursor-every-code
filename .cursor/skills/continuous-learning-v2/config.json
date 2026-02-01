@@ -5,8 +5,17 @@
     "store_path": "./.claude/homunculus/observations.jsonl",
     "max_file_size_mb": 10,
     "archive_after_days": 7,
-    "capture_tools": ["Edit", "Write", "Bash", "Read", "Grep", "Glob"],
-    "ignore_tools": ["TodoWrite"]
+    "capture_tools": [
+      "Edit",
+      "Write",
+      "Bash",
+      "Read",
+      "Grep",
+      "Glob"
+    ],
+    "ignore_tools": [
+      "TodoWrite"
+    ]
   },
   "instincts": {
     "personal_path": "./.claude/homunculus/instincts/personal/",
@@ -18,7 +27,7 @@
   },
   "observer": {
     "enabled": false,
-    "model": "haiku",
+    "model": "Composer 1",
     "run_interval_minutes": 5,
     "min_observations_to_analyze": 20,
     "patterns_to_detect": [
