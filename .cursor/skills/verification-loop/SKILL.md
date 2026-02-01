@@ -1,83 +1,165 @@
+---
+name: verification-loop
+description: A pragmatic quality gate checklist (Python-first) to run before PRs or after major changes.
+---
+
 # Verification Loop Skill
 
-A comprehensive verification system for Claude Code sessions.
+A comprehensive verification system for sessions and PR prep.
 
 ## When to Use
 
 Invoke this skill:
 - After completing a feature or significant code change
 - Before creating a PR
-- When you want to ensure quality gates pass
 - After refactoring
+- When you suspect regressions
 
 ## Verification Phases
 
-### Phase 1: Build Verification
+> The goal is **signal**, not ceremony. Prefer the commands your repo already defines.
+
+Before running checks, **auto-detect the repo tooling** (uv/poetry/pdm/pipenv, npm/pnpm, etc.) and copy/paste the recommended commands:
+
 ```bash
-# Check if project builds
-npm run build 2>&1 | tail -20
-# OR
-pnpm build 2>&1 | tail -20
+node .cursor/scripts/recommend-commands.js
 ```
 
-If build fails, STOP and fix before continuing.
+If hooks are enabled, the tooling snapshot is written automatically to `.cursor/.hook_state/tooling.json` on session start.
+
+### Phase 1: Build / Sanity Check
+
+**Python:**
+```bash
+# Syntax/import sanity (use the correct runner prefix for your repo)
+# uv:     uv run python -m compileall -q .
+# poetry: poetry run python -m compileall -q .
+python -m compileall -q .
+
+# Optional: verify dependencies are consistent
+python -m pip check || true
+```
+
+**Node.js (if present):**
+```bash
+# Use your detected package manager (see recommend-commands.js output):
+# pnpm: pnpm build
+# npm:  npm run build
+# yarn: yarn build
+npm run build 2>&1 | tail -50
+```
+
+If the build/sanity check fails, **STOP** and fix before continuing.
 
 ### Phase 2: Type Check
-```bash
-# TypeScript projects
-npx tsc --noEmit 2>&1 | head -30
 
-# Python projects
-pyright . 2>&1 | head -30
+**Python (preferred):**
+```bash
+# uv:     uv run mypy .
+# poetry: poetry run mypy .
+mypy . 2>&1 | head -60
 ```
 
-Report all type errors. Fix critical ones before continuing.
-
-### Phase 3: Lint Check
+If you use pyright instead:
 ```bash
-# JavaScript/TypeScript
-npm run lint 2>&1 | head -30
+pyright . 2>&1 | head -60
+```
 
-# Python
-ruff check . 2>&1 | head -30
+**TypeScript (if present):**
+```bash
+# Prefer your repo's typecheck script if it exists.
+# Otherwise use a local tsc invocation:
+# pnpm: pnpm exec tsc --noEmit
+# npm:  npx --no-install tsc --noEmit
+npm run typecheck 2>&1 | head -60
+```
+
+### Phase 3: Lint / Format
+
+**Python:**
+```bash
+# uv:     uv run ruff format .
+#         uv run ruff check .
+# poetry: poetry run ruff format .
+#         poetry run ruff check .
+ruff format .
+ruff check . 2>&1 | head -60
+```
+
+**JavaScript/TypeScript:**
+```bash
+# Use your package manager:
+# pnpm: pnpm lint
+# npm:  npm run lint
+# yarn: yarn lint
+npm run lint 2>&1 | head -60
 ```
 
 ### Phase 4: Test Suite
-```bash
-# Run tests with coverage
-npm run test -- --coverage 2>&1 | tail -50
 
-# Check coverage threshold
-# Target: 80% minimum
+**Python:**
+```bash
+# uv:     uv run pytest -q
+# poetry: poetry run pytest -q
+pytest -q
+
+# With coverage (recommended for PR)
+# uv:     uv run pytest -q --cov=. --cov-report=term-missing
+# poetry: poetry run pytest -q --cov=. --cov-report=term-missing
+pytest -q --cov=. --cov-report=term-missing
+```
+
+**Node.js:**
+```bash
+# Use your package manager:
+# pnpm: pnpm test
+# npm:  npm test
+# yarn: yarn test
+npm test 2>&1 | tail -80
+# With coverage (if configured)
+npm test -- --coverage 2>&1 | tail -80
 ```
 
 Report:
 - Total tests: X
 - Passed: X
 - Failed: X
-- Coverage: X%
+- Coverage: X% (if applicable)
 
-### Phase 5: Security Scan
+### Phase 5: Security & Secrets Scan (lightweight)
+
+Minimal checks that work everywhere:
+
 ```bash
-# Check for secrets
-grep -rn "sk-" --include="*.ts" --include="*.js" . 2>/dev/null | head -10
-grep -rn "api_key" --include="*.ts" --include="*.js" . 2>/dev/null | head -10
+# Common secret patterns (expand as needed)
+git grep -nE "(sk-[A-Za-z0-9]{10,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA|OPENSSH) PRIVATE KEY-----)" -- . || true
 
-# Check for console.log
-grep -rn "console.log" --include="*.ts" --include="*.tsx" src/ 2>/dev/null | head -10
+# Accidental debug prints
+# Python
+git grep -nE "\bprint\(" -- '*.py' || true
+# JS/TS
+git grep -nE "\bconsole\.log\b" -- '*.ts' '*.tsx' '*.js' '*.jsx' || true
 ```
 
+If your org uses a scanner (gitleaks/trufflehog), prefer that in CI.
+
 ### Phase 6: Diff Review
+
 ```bash
-# Show what changed
 git diff --stat
-git diff HEAD~1 --name-only
+
+# Files changed vs HEAD (works even if only working tree changed)
+git diff --name-only
+
+# If you have a previous commit to compare:
+# git diff --name-only HEAD~1
 ```
 
 Review each changed file for:
-- Unintended changes
-- Missing error handling
-- Potential edge cases
+- unintended changes
+- missing validation/error handling
+- security regressions
+- test gaps
 
 ## Output Format
 
@@ -103,18 +185,9 @@ Issues to Fix:
 
 ## Continuous Mode
 
-For long sessions, run verification every 15 minutes or after major changes:
+For long sessions, run a mini-check after major milestones:
+- after finishing a function
+- after adding an endpoint
+- after refactoring a core module
 
-```markdown
-Set a mental checkpoint:
-- After completing each function
-- After finishing a component
-- Before moving to next task
-
-Run: /verify
-```
-
-## Integration with Hooks
-
-This skill complements PostToolUse hooks but provides deeper verification.
-Hooks catch issues immediately; this skill provides comprehensive review.
+If hooks are enabled, they can catch issues incrementally; this skill is for the *full* gate.

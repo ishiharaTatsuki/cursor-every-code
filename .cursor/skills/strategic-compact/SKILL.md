@@ -1,11 +1,11 @@
 ---
 name: strategic-compact
-description: Suggests manual context compaction at logical intervals to preserve context through task phases rather than arbitrary auto-compaction.
+description: Suggests manual context compaction at logical intervals to preserve intent and reduce drift.
 ---
 
 # Strategic Compact Skill
 
-Suggests manual `/compact` at strategic points in your workflow rather than relying on arbitrary auto-compaction.
+Suggests manual `/compact` at logical points rather than relying on arbitrary auto-compaction.
 
 ## Why Strategic Compaction?
 
@@ -15,32 +15,36 @@ Auto-compaction triggers at arbitrary points:
 - Can interrupt complex multi-step operations
 
 Strategic compaction at logical boundaries:
-- **After exploration, before execution** - Compact research context, keep implementation plan
-- **After completing a milestone** - Fresh start for next phase
-- **Before major context shifts** - Clear exploration context before different task
+- **After exploration, before execution** — compact research context, keep implementation plan
+- **After completing a milestone** — fresh start for next phase
+- **Before a major context shift** — clear old threads before switching topics
 
 ## How It Works
 
-The `suggest-compact.sh` script runs on PreToolUse (Edit/Write) and:
+The hook script runs on `PreToolUse` for `Edit|Write` and:
 
-1. **Tracks tool calls** - Counts tool invocations in session
-2. **Threshold detection** - Suggests at configurable threshold (default: 50 calls)
-3. **Periodic reminders** - Reminds every 25 calls after threshold
+1. **Tracks tool calls** — counts tool invocations for the current session
+2. **Threshold detection** — suggests at a configurable threshold (default: 50 tool calls)
+3. **Periodic reminders** — reminds every 25 calls after threshold
 
-## Hook Setup
+## Hook Setup (Third-party Claude Code compatible)
 
-Add to your `./.cursor/settings.json`:
+In `./.claude/settings.json`:
 
 ```json
 {
   "hooks": {
-    "PreToolUse": [{
-      "matcher": "tool == \"Edit\" || tool == \"Write\"",
-      "hooks": [{
-        "type": "command",
-        "command": "./.cursor/skills/strategic-compact/suggest-compact.sh"
-      }]
-    }]
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/suggest-compact.js\""
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -48,16 +52,16 @@ Add to your `./.cursor/settings.json`:
 ## Configuration
 
 Environment variables:
-- `COMPACT_THRESHOLD` - Tool calls before first suggestion (default: 50)
+- `COMPACT_THRESHOLD` — tool calls before first suggestion (default: 50)
 
 ## Best Practices
 
-1. **Compact after planning** - Once plan is finalized, compact to start fresh
-2. **Compact after debugging** - Clear error-resolution context before continuing
-3. **Don't compact mid-implementation** - Preserve context for related changes
-4. **Read the suggestion** - The hook tells you *when*, you decide *if*
+1. **Compact after planning** — once the plan is finalized, compact to start fresh
+2. **Compact after debugging** — clear error-resolution context before continuing
+3. **Don't compact mid-implementation** — preserve context for related changes
+4. **Use compaction as a handoff** — end one phase, begin the next
 
-## Related
+## Notes
 
-- [The Longform Guide](https://x.com/affaanmustafa/status/2014040193557471352) - Token optimization section
-- Memory persistence hooks - For state that survives compaction
+- This is a *suggestion* system. You choose when to compact.
+- If you find it too chatty, raise `COMPACT_THRESHOLD`.
