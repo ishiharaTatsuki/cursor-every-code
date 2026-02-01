@@ -1,0 +1,5 @@
+.cursor/.hook_state/
+
+.claude/checkpoints.log
+
+.claude/homunculus/
