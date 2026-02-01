@@ -1,12 +1,13 @@
-# Cursor IDE 用ツール（Python）
+# Cursor IDE 用ツール
 
-このリポジトリは、[everything-claude-code](https://github.com/affaan-m/everything-claude-code)を**Cursor IDE で使用するためのツール**を（主に **Python** で）管理するためのベースです。
+このリポジトリは、[everything-claude-code](https://github.com/affaan-m/everything-claude-code)を**Cursor IDE で使用するためのツール**を管理するためのベースです。
 
 ## 含めるもの（例）
 
 - Cursor のプロジェクトルール（`.cursor/rules/` 配下）
 - Python のツール / 補助スクリプト / 小さなライブラリ
 - 開発支援（テンプレート、チェックリスト、ドキュメント等）
+- settings.jsonなどhook系はnode.jsで記述しています。Nodeをインストールしてください。
 
 ## 最小運用ルール
 - 現在のmodelはinheritで記述。IDEなどで検索・置換でmodelを変更する。
