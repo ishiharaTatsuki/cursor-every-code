@@ -1,5 +1,7 @@
 .cursor/.hook_state/
-
+.cursor/.sessions/
+.cursor/skills/learned/
 .claude/checkpoints.log
-
 .claude/homunculus/
+
+.venv
