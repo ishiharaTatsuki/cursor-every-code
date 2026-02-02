@@ -89,8 +89,8 @@ def is_excluded(path: Path, root: Path) -> bool:
 def likely_text_file(p: Path) -> bool:
     if p.suffix.lower() in TEXT_EXT_ALLOWLIST:
         return True
-    # also allow files with no extension under .cursor/.cursor
-    if p.suffix == "" and (".cursor" in p.parts or ".cursor" in p.parts):
+    # also allow files with no extension under .cursor/.claude
+    if p.suffix == "" and (".cursor" in p.parts or ".claude" in p.parts):
         return True
     return False
 
@@ -130,7 +130,7 @@ def scan_file(root: Path, p: Path) -> list[Finding]:
     return findings
 
 def parse_hooks_settings(root: Path) -> tuple[Optional[dict], Optional[str]]:
-    settings = root / ".cursor" / "settings.json"
+    settings = root / ".claude" / "settings.json"
     if not settings.exists():
         return None, f"missing: {settings}"
     text = read_text_safe(settings)

@@ -1,20 +1,3 @@
-了解です。**`~/` を削除ではなく `./` に置換**する版に変更します。
-これで例の `~/.cursor/skills` は **`./.cursor/skills`** になり、`cd ~/` も **`cd ./`** になるので、削除より意図に近い挙動になります。
-
-ただし注意点：`~/..` は `./..` になり、 **プロジェクトルートで実行すると親ディレクトリ（=プロジェクト外）を指します** 。
-「プロジェクト内に閉じ込める」目的なら、`./..` が残った箇所は必ず目視で直す（もしくは追加ルールで変換対象から除外）するのが安全です。
-
----
-
-## スクリプト（置換版）：`scripts/replace_tilde_slash.py`
-
-* デフォルト：`~/` → `./`
-* **dry-run（デフォルト）**でまず確認 → `--apply` で書き換え
-* `--backup` で `.bak` を作成
-* `.git/`, `.venv/`, `node_modules/` などは除外
-* バイナリはスキップ
-
-```python
 #!/usr/bin/env python3
 from __future__ import annotations
 
@@ -146,7 +129,7 @@ def main() -> int:
     ap.add_argument("--root", default=".", help="Project root directory (default: current dir)")
     ap.add_argument("--apply", action="store_true", help="Actually modify files (default: dry-run)")
     ap.add_argument("--backup", action="store_true", help="Create .bak backups before writing")
-    ap.add_argument("--pattern", default="~/", help='Pattern to find (default: "~/")')
+    ap.add_argument("--pattern", default="./", help='Pattern to find (default: "./")')
     ap.add_argument("--replacement", default="./", help='Replacement (default: "./")')
     ap.add_argument("--max-bytes", type=int, default=5_000_000, help="Skip files larger than this (default: 5MB)")
     ap.add_argument(
@@ -212,32 +195,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-```
-
----
-
-## 実行方法
-
-```bash
-# まず確認（dry-run）
-python scripts/replace_tilde_slash.py
-
-# 実際に置換（推奨：バックアップ付き）
-python scripts/replace_tilde_slash.py --apply --backup
-```
-
----
-
-## 追加の安全チェック（強く推奨）
-
-置換後に **プロジェクト外へ出そうとする `./..`** が混ざっていないか確認してください：
-
-```bash
-rg -n "\./\.\." -S .
-```
-
-もし出てきたら、その箇所は「プロジェクト内に閉じる」という意図に反する可能性が高いので、個別に調整（例：`.ecc` 直下へ、など）するのが安全です。
-
----
-
-必要なら次に、`./..` や `cd ./..` のような “脱出” パターンだけを検知・一覧化して警告する（あるいは自動で別表現に変換する）追加モードも付けられます。

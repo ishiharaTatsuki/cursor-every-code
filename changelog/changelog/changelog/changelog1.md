@@ -3,7 +3,7 @@
 * `vendor/ecc/scripts/**` を **`.cursor/scripts/**` にコピー**
 * hooks 側の `${CLAUDE_PLUGIN_ROOT}` を  **`./.cursor` に置換** （＝`vendor/ecc` に依存しない）
 
-さらに重要な点として、Cursor は **Claude Code の `.cursor/settings.json` を “第三者フック” としてそのまま利用できる**ので、hooks は `.cursor/hooks.json` ではなく **`.cursor/settings.json` として配置**します（互換性が高い）。([Cursor](https://cursor.com/docs/agent/third-party-hooks?utm_source=chatgpt.com "Third Party Hooks | Cursor Docs"))
+さらに重要な点として、Cursor は **Claude Code の `.claude/settings.json` を “第三者フック” としてそのまま利用できる**ので、hooks は `.cursor/hooks.json` ではなく **`.claude/settings.json` として配置**します（互換性が高い）。([Cursor](https://cursor.com/docs/agent/third-party-hooks?utm_source=chatgpt.com "Third Party Hooks | Cursor Docs"))
 （Cursor ネイティブ hooks は `.cursor/hooks.json` ですが、今回の「完全移植」では Claude Code 互換の方が再現度が上がります。([Cursor](https://cursor.com/docs/agent/hooks?utm_source=chatgpt.com "Hooks | Cursor Docs"))）
 
 ---
@@ -12,7 +12,7 @@
 
 > そのままコピペで保存して実行してください。
 > ※実行すると `.cursor/{commands,agents,skills,rules,scripts}` を **丸ごと上書き**します（バックアップを自動作成）。
-> ※hooks は `.cursor/settings.json` を生成します（こちらもバックアップ作成）。
+> ※hooks は `.claude/settings.json` を生成します（こちらもバックアップ作成）。
 
 ```python
 #!/usr/bin/env python3
@@ -40,7 +40,7 @@ class SyncPaths:
 
     @property
     def claude(self) -> Path:
-        return self.project / ".cursor"
+        return self.project / ".claude"
 
 
 def timestamp() -> str:
@@ -115,7 +115,7 @@ def write_cursor_mcp_placeholder(dst: Path) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--vendor", default=DEFAULT_VENDOR, help="Path to everything-claude-code checkout")
-    ap.add_argument("--project", default=".", help="Project root (where .cursor/.cursor will be created)")
+    ap.add_argument("--project", default=".", help="Project root (where .cursor/.claude will be created)")
     args = ap.parse_args()
 
     paths = SyncPaths(
@@ -128,7 +128,7 @@ def main() -> None:
 
     # ========== Backup existing configs ==========
     backup_if_exists(paths.cursor)
-    backup_if_exists(paths.cursor / "settings.json")
+    backup_if_exists(paths.claude / "settings.json")
 
     # ========== 1) Cursor Commands ==========
     copy_glob_files(paths.vendor / "commands", "*.md", paths.cursor / "commands")
@@ -154,8 +154,8 @@ def main() -> None:
     # Hooks in everything-claude-code call Node scripts; keep them local so vendor can be removed.
     replace_dir(paths.vendor / "scripts", paths.cursor / "scripts")
 
-    # ========== 6) Third-party hooks (Claude Code format) into .cursor/settings.json ==========
-    # Cursor can load Claude Code hooks from .cursor/settings.json automatically (third-party hooks).
+    # ========== 6) Third-party hooks (Claude Code format) into .claude/settings.json ==========
+    # Cursor can load Claude Code hooks from .claude/settings.json automatically (third-party hooks).
     src_hooks_settings = paths.vendor / "hooks" / "hooks.json"
     if src_hooks_settings.exists():
         raw = src_hooks_settings.read_text(encoding="utf-8")
@@ -170,14 +170,14 @@ def main() -> None:
             repl="./.cursor",
         )
 
-        dst_settings = paths.cursor / "settings.json"
+        dst_settings = paths.claude / "settings.json"
         dst_settings.parent.mkdir(parents=True, exist_ok=True)
         dst_settings.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     # ========== 7) MCP placeholder ==========
     write_cursor_mcp_placeholder(paths.cursor / "mcp.json")
 
-    print("✅ Synced everything-claude-code into .cursor/ and .cursor/")
+    print("✅ Synced everything-claude-code into .cursor/ and .claude/")
     print("✅ You can now delete vendor/ecc if you don't need to resync.")
     print("   (To resync later, re-clone vendor/ecc and re-run this script.)")
 
@@ -194,7 +194,7 @@ if __name__ == "__main__":
 # 一時的に upstream を取得（submoduleでもcloneでもOK）
 git clone https://github.com/affaan-m/everything-claude-code vendor/ecc
 
-# 同期（.cursor と .cursor を生成/上書き）
+# 同期（.cursor と .claude を生成/上書き）
 python scripts/sync_ecc_to_cursor.py --vendor vendor/ecc --project .
 
 # Cursor 再起動 / Reload Window 推奨
@@ -226,7 +226,7 @@ python scripts/sync_ecc_to_cursor.py --vendor vendor/ecc --project .
 
 ```text
 <project-root>/
-├── .cursor/
+├── .claude/
 │   └── settings.json                 # ← upstream hooks/hooks.json を移植（third-party hooks）
 │
 ├── .cursor/
@@ -266,8 +266,8 @@ python scripts/sync_ecc_to_cursor.py --vendor vendor/ecc --project .
 ```
 
 ※ `.cursor/rules/*.mdc` の `alwaysApply` などは Cursor の rules 仕様に沿っています。([Cursor](https://cursor.com/ja/docs/context/rules?utm_source=chatgpt.com "Rules | Cursor Docs"))
-※ `.cursor/settings.json` を Cursor がそのまま読める（third-party hooks）点は Cursor Docs 側の説明に基づきます。([Cursor](https://cursor.com/docs/agent/third-party-hooks?utm_source=chatgpt.com "Third Party Hooks | Cursor Docs"))
+※ `.claude/settings.json` を Cursor がそのまま読める（third-party hooks）点は Cursor Docs 側の説明に基づきます。([Cursor](https://cursor.com/docs/agent/third-party-hooks?utm_source=chatgpt.com "Third Party Hooks | Cursor Docs"))
 
 ---
 
-必要なら次は、「Python中心に合わせて hooks を強化（ruff/pytest/mypy を afterFileEdit/stop 相当で走らせる）」まで、上の `.cursor/settings.json` に追加するパッチもこちらで用意できます。
+必要なら次は、「Python中心に合わせて hooks を強化（ruff/pytest/mypy を afterFileEdit/stop 相当で走らせる）」まで、上の `.claude/settings.json` に追加するパッチもこちらで用意できます。

@@ -1,3 +1,21 @@
+了解です。`.claude/settings.json`（third‑party hooks）内の **command hook が参照する `.cursor/...` や `.claude/...` を、`$CLAUDE_PROJECT_DIR` 基準の絶対（=プロジェクトルート固定）に統一**します。
+
+これは Claude Code の hooks 公式でも「作業ディレクトリに依存しないよう `$CLAUDE_PROJECT_DIR` を使う」ことが推奨されています（スペース対策でクォートも推奨）。([Claude Code](https://code.claude.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
+また Cursor は Claude Code 互換の third‑party hooks を読み込めます。([Cursor](https://cursor.com/docs/agent/third-party-hooks?utm_source=chatgpt.com "Third Party Hooks | Cursor Docs"))
+
+---
+
+# 1) 置換スクリプト（dry-run → apply）
+
+`tools/absolutize_hooks_with_project_dir.py` として保存してください。
+
+* 対象：`.claude/settings.json` の `hooks.*[].hooks[].command`
+* 変換：`./.cursor/...` / `.cursor/...` / `./.claude/...` / `.claude/...` を
+  `"$CLAUDE_PROJECT_DIR/.cursor/..."` / `"$CLAUDE_PROJECT_DIR/.claude/..."` に統一
+* `node -e "..."` など **インライン実行**は（ファイル参照でないので）**変更しません**
+* **バックアップ**作成対応
+
+```python
 #!/usr/bin/env python3
 from __future__ import annotations
 
@@ -20,10 +38,10 @@ class Change:
 
 
 # Paths we want to anchor to $CLAUDE_PROJECT_DIR
-# We intentionally limit scope to ".cursor/..." and ".cursor/..." so we don't touch "go build ./..." etc.
-SQ_PATH = re.compile(r"'(?P<prefix>\./)?(?P<root>\.cursor|\.cursor)(?P<rest>/[^']*)'")
-DQ_PATH = re.compile(r"\"(?P<prefix>\./)?(?P<root>\.cursor|\.cursor)(?P<rest>/[^\"]*)\"")
-BARE_PATH = re.compile(r"(?P<lead>(?:^|\s))(?P<prefix>\./)?(?P<root>\.cursor|\.cursor)(?P<rest>/[A-Za-z0-9._/\-]+)")
+# We intentionally limit scope to ".cursor/..." and ".claude/..." so we don't touch "go build ./..." etc.
+SQ_PATH = re.compile(r"'(?P<prefix>\./)?(?P<root>\.cursor|\.claude)(?P<rest>/[^']*)'")
+DQ_PATH = re.compile(r"\"(?P<prefix>\./)?(?P<root>\.cursor|\.claude)(?P<rest>/[^\"]*)\"")
+BARE_PATH = re.compile(r"(?P<lead>(?:^|\s))(?P<prefix>\./)?(?P<root>\.cursor|\.claude)(?P<rest>/[A-Za-z0-9._/\-]+)")
 
 NODE_INLINE = re.compile(r"\bnode\b\s+-(e|p)\b|\bnode\b\s+--eval\b")
 
@@ -108,7 +126,7 @@ def walk_and_patch_hooks(data: Any) -> List[Change]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--file", default=".cursor/settings.json", help="Path to settings.json (default: .cursor/settings.json)")
+    ap.add_argument("--file", default=".claude/settings.json", help="Path to settings.json (default: .claude/settings.json)")
     ap.add_argument("--apply", action="store_true", help="Write changes (default: dry-run)")
     ap.add_argument("--backup", action="store_true", help="Create backup before writing")
     ap.add_argument("--show", type=int, default=30, help="Show first N changes")
@@ -129,7 +147,7 @@ def main() -> int:
     changes = walk_and_patch_hooks(data)
 
     if not changes:
-        print("No hook commands needed changes (already anchored or no .cursor/.cursor paths found).")
+        print("No hook commands needed changes (already anchored or no .cursor/.claude paths found).")
         return 0
 
     print(f"{'APPLY' if args.apply else 'DRY-RUN'}: {len(changes)} command(s) will be updated.")
@@ -151,3 +169,45 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+```
+
+---
+
+## 実行手順
+
+```bash
+# 1) まず確認（dry-run）
+python tools/absolutize_hooks_with_project_dir.py
+
+# 2) 書き込み（バックアップ推奨）
+python tools/absolutize_hooks_with_project_dir.py --apply --backup
+```
+
+---
+
+# 2) 変更後の確認コマンド（おすすめ）
+
+```bash
+# .claude/settings.json に .cursor/ が "相対で" 残ってないか（0件が理想）
+rg -n '(^|[^\$])(\./)?\.cursor/' .claude/settings.json
+rg -n '(^|[^\$])(\./)?\.claude/' .claude/settings.json
+
+# $CLAUDE_PROJECT_DIR が入ったか
+rg -n 'CLAUDE_PROJECT_DIR' .claude/settings.json
+```
+
+---
+
+# 3) 注意（Windows等で $CLAUDE_PROJECT_DIR が空のケース）
+
+あなたが Cursor（third‑party hooks）で動かす場合でも多くは大丈夫ですが、**環境によって hooks 実行時に `CLAUDE_PROJECT_DIR` が入らない**という報告があります（Windowsなど）。([GitHub](https://github.com/anthropics/claude-code/issues/6023?utm_source=chatgpt.com "[BUG] When I use hooks the CLAUDE_PROJECT_DIR isn't ..."))
+
+もしその症状が出たら、最終的には hooks の `command` を
+
+* `bash -lc 'ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"; node "$ROOT/..."'`
+
+のように **フォールバック付き**にするのが堅いです（必要なら、その“フォールバック付与版”に自動変換するスクリプトも出します）。
+
+---
+
+必要なら次に、あなたの現状の `.claude/settings.json` を前提に「**evaluate-session / python-after-edit / python-stop-checks** の3つだけ確実に動く最小 hooks セット（絶対パス＋フォールバック＋Windows配慮）」を提示します。

@@ -38,11 +38,11 @@ fi
 
 # learned_skills_path を取得（デフォルトはプロジェクト相対）
 RAW_LEARNED_SKILLS_PATH="$(
-  jq -r '.learned_skills_path // ".cursor/skills/learned/"' "$CONFIG_FILE"
+  jq -r '.learned_skills_path // ".claude/skills/learned/"' "$CONFIG_FILE"
 )"
 
 # 先頭の ~ は “プロジェクト” として扱う（ホームにはしない）
-# 例: "~/.cursor/skills" -> "./.cursor/skills"
+# 例: "~/.claude/skills" -> "./.claude/skills"
 RAW_LEARNED_SKILLS_PATH="$(printf "%s" "$RAW_LEARNED_SKILLS_PATH" | sed -e 's|^~/|./|' -e 's|^~|.|')"
 
 # 相対 -> PROJECT_ROOT で絶対化
@@ -71,7 +71,7 @@ esac
 という “揺れ” を生みます。
 
 `CLAUDE_PROJECT_DIR` を基点に `p` を絶対化するのが堅いです。 ([Claude API Docs](https://docs.anthropic.com/en/docs/claude-code/settings?utm_source=chatgpt.com "Claude Code settings - Claude Code Docs"))
-（Cursor は `.cursor/settings.json` の third‑party hooks を読み込めるので、この設計で統一するのが良いです） ([Cursor](https://cursor.com/docs/agent/third-party-hooks?utm_source=chatgpt.com "Third Party Hooks | Cursor Docs"))
+（Cursor は `.claude/settings.json` の third‑party hooks を読み込めるので、この設計で統一するのが良いです） ([Cursor](https://cursor.com/docs/agent/third-party-hooks?utm_source=chatgpt.com "Third Party Hooks | Cursor Docs"))
 
 ### 推奨修正（inline node -e 内）
 
@@ -79,7 +79,7 @@ esac
 
 ```js
 const path = require("path");
-const projectDir = process.env.cursor_PROJECT_DIR || process.cwd();
+const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const p0 = i.tool_input?.file_path;
 const p = p0 ? (path.isAbsolute(p0) ? p0 : path.join(projectDir, p0)) : "";
 ```
@@ -152,11 +152,11 @@ rg -n -P "\./\.\.(?!\.)" .
    ```bash
    rg -n -P "\./\.\.(?!\.)" .
    ```
-3. `.cursor/settings.json` の inline hooks で `file_path` を使うものだけ、**絶対パス化**を入れる
+3. `.claude/settings.json` の inline hooks で `file_path` を使うものだけ、**絶対パス化**を入れる
 
 ---
 
-必要なら、あなたの `.cursor/settings.json` の `node -e` 群を  **全部ファイル化** （`.cursor/scripts/hooks/*.js`）して、共通の `path.resolve` ユーティリティを持たせる “保守性重視の完成形” まで具体案を出します。
+必要なら、あなたの `.claude/settings.json` の `node -e` 群を  **全部ファイル化** （`.cursor/scripts/hooks/*.js`）して、共通の `path.resolve` ユーティリティを持たせる “保守性重視の完成形” まで具体案を出します。
 
 
 
@@ -179,7 +179,7 @@ rg -n -P "\./\.\.(?!\.)" .
 # - Stop runs once at session end (lightweight)
 # - UserPromptSubmit runs every message (heavy, adds latency)
 #
-# Recommended hook config (project-level .cursor/settings.json):
+# Recommended hook config (project-level .claude/settings.json):
 # {
 #   "hooks": {
 #     "Stop": [{
@@ -247,7 +247,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Determine project root:
 # 1) CLAUDE_PROJECT_DIR if set
 # 2) git root (from script location)
-# 3) walk up until .git/.cursor/.cursor found
+# 3) walk up until .git/.claude/.cursor found
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-}"
 if [ -z "$PROJECT_ROOT" ]; then
   if has_cmd git; then
@@ -258,7 +258,7 @@ if [ -z "$PROJECT_ROOT" ]; then
   d="$SCRIPT_DIR"
   PROJECT_ROOT="$SCRIPT_DIR"
   while [ "$d" != "/" ] && [ "$d" != "$(dirname "$d")" ]; do
-    if [ -d "$d/.git" ] || [ -d "$d/.cursor" ] || [ -d "$d/.cursor" ]; then
+    if [ -d "$d/.git" ] || [ -d "$d/.claude" ] || [ -d "$d/.cursor" ]; then
       PROJECT_ROOT="$d"
       break
     fi
@@ -269,7 +269,7 @@ fi
 CONFIG_FILE="$SCRIPT_DIR/config.json"
 
 DEFAULT_MIN_SESSION_LENGTH=10
-DEFAULT_LEARNED_REL=".cursor/skills/learned/"
+DEFAULT_LEARNED_REL=".claude/skills/learned/"
 
 MIN_SESSION_LENGTH="$DEFAULT_MIN_SESSION_LENGTH"
 LEARNED_SKILLS_PATH="$PROJECT_ROOT/${DEFAULT_LEARNED_REL%/}"

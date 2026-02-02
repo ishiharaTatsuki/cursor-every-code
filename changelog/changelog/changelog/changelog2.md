@@ -4,7 +4,7 @@
 
 * **PostToolUse（Edit/Writeの直後）**で「変更された `.py` を記録 + ruff format/check」
 * **Stop（応答の最後）**で「今回変更されたPythonファイルがある時だけ mypy / pytest を走らせる」
-  ※Stop hook の入力自体には「どのファイルが変わったか」が入らないので、**PostToolUse 側で状態ファイルに記録**する必要があります。([Claude Code](https://code.cursor.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
+  ※Stop hook の入力自体には「どのファイルが変わったか」が入らないので、**PostToolUse 側で状態ファイルに記録**する必要があります。([Claude Code](https://code.claude.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
 
 以下、そのまま貼れる **完成パッチ**です。
 
@@ -147,7 +147,7 @@ function main() {
 
   if (!filePath || !/\.(py|pyi)$/.test(filePath)) process.exit(0);
 
-  const projectDir = process.env.cursor_PROJECT_DIR || process.cwd();
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const stateDir = path.join(projectDir, ".cursor", ".hook_state");
   const stateFile = path.join(stateDir, "py_changed_files.json");
   ensureDir(stateDir);
@@ -312,7 +312,7 @@ function hasPytestConfig(projectDir) {
 }
 
 function main() {
-  const projectDir = process.env.cursor_PROJECT_DIR || process.cwd();
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const stateDir = path.join(projectDir, ".cursor", ".hook_state");
   const stateFile = path.join(stateDir, "py_changed_files.json");
   ensureDir(stateDir);
@@ -352,9 +352,9 @@ main();
 
 ---
 
-# 2) `.cursor/settings.json` に hooks を追加
+# 2) `.claude/settings.json` に hooks を追加
 
-あなたの `.cursor/settings.json` は `everything-claude-code` 由来で、`hooks` の各イベントに matcher/hook を並べる構造になっています。([Claude Code](https://code.cursor.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
+あなたの `.claude/settings.json` は `everything-claude-code` 由来で、`hooks` の各イベントに matcher/hook を並べる構造になっています。([Claude Code](https://code.claude.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
 そこへ、以下を追記します。
 
 ## A. `hooks.PostToolUse` 配列に追加（末尾でOK）
@@ -375,7 +375,7 @@ main();
 
 ## B. `hooks.Stop` 配列に追加（末尾でOK）
 
-Stop 入力には file_path が無いので、先に記録した state を読んで動かします。([Claude Code](https://code.cursor.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
+Stop 入力には file_path が無いので、先に記録した state を読んで動かします。([Claude Code](https://code.claude.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
 
 ```json
 {
@@ -391,7 +391,7 @@ Stop 入力には file_path が無いので、先に記録した state を読ん
 }
 ```
 
-> 既存の Stop hook（例：console.log検知）と **並列実行**になります。Claude Code hooks は同一イベントで複数 hook がマッチすると並列で走ります。([Claude Code](https://code.cursor.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
+> 既存の Stop hook（例：console.log検知）と **並列実行**になります。Claude Code hooks は同一イベントで複数 hook がマッチすると並列で走ります。([Claude Code](https://code.claude.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
 
 ---
 
@@ -409,7 +409,7 @@ state をコミットしないように：
 
 ```text
 <project-root>/
-├── .cursor/
+├── .claude/
 │   └── settings.json
 │
 ├── .cursor/
@@ -442,7 +442,7 @@ state をコミットしないように：
 * **mypy 未導入/うるさい**
   `ECC_SKIP_MYPY=1`
 
-> これらは hooks の仕組み自体（設定ファイルとstdin JSON）に沿った作りです。([Claude Code](https://code.cursor.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
+> これらは hooks の仕組み自体（設定ファイルとstdin JSON）に沿った作りです。([Claude Code](https://code.claude.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
 
 ---
 

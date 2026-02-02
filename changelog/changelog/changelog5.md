@@ -1,6 +1,6 @@
-了解です。`.claude/settings.json`（third‑party hooks）内の **command hook が参照する `.cursor/...` や `.claude/...` を、`$CLAUDE_PROJECT_DIR` 基準の絶対（=プロジェクトルート固定）に統一**します。
+了解です。`.cursor/settings.json`（third‑party hooks）内の **command hook が参照する `.cursor/...` や `.cursor/...` を、`$CLAUDE_PROJECT_DIR` 基準の絶対（=プロジェクトルート固定）に統一**します。
 
-これは Claude Code の hooks 公式でも「作業ディレクトリに依存しないよう `$CLAUDE_PROJECT_DIR` を使う」ことが推奨されています（スペース対策でクォートも推奨）。([Claude Code](https://code.claude.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
+これは Claude Code の hooks 公式でも「作業ディレクトリに依存しないよう `$CLAUDE_PROJECT_DIR` を使う」ことが推奨されています（スペース対策でクォートも推奨）。([Claude Code](https://code.cursor.com/docs/en/hooks "Hooks reference - Claude Code Docs"))
 また Cursor は Claude Code 互換の third‑party hooks を読み込めます。([Cursor](https://cursor.com/docs/agent/third-party-hooks?utm_source=chatgpt.com "Third Party Hooks | Cursor Docs"))
 
 ---
@@ -9,9 +9,9 @@
 
 `tools/absolutize_hooks_with_project_dir.py` として保存してください。
 
-* 対象：`.claude/settings.json` の `hooks.*[].hooks[].command`
-* 変換：`./.cursor/...` / `.cursor/...` / `./.claude/...` / `.claude/...` を
-  `"$CLAUDE_PROJECT_DIR/.cursor/..."` / `"$CLAUDE_PROJECT_DIR/.claude/..."` に統一
+* 対象：`.cursor/settings.json` の `hooks.*[].hooks[].command`
+* 変換：`./.cursor/...` / `.cursor/...` / `./.cursor/...` / `.cursor/...` を
+  `"$CLAUDE_PROJECT_DIR/.cursor/..."` / `"$CLAUDE_PROJECT_DIR/.cursor/..."` に統一
 * `node -e "..."` など **インライン実行**は（ファイル参照でないので）**変更しません**
 * **バックアップ**作成対応
 
@@ -38,10 +38,10 @@ class Change:
 
 
 # Paths we want to anchor to $CLAUDE_PROJECT_DIR
-# We intentionally limit scope to ".cursor/..." and ".claude/..." so we don't touch "go build ./..." etc.
-SQ_PATH = re.compile(r"'(?P<prefix>\./)?(?P<root>\.cursor|\.claude)(?P<rest>/[^']*)'")
-DQ_PATH = re.compile(r"\"(?P<prefix>\./)?(?P<root>\.cursor|\.claude)(?P<rest>/[^\"]*)\"")
-BARE_PATH = re.compile(r"(?P<lead>(?:^|\s))(?P<prefix>\./)?(?P<root>\.cursor|\.claude)(?P<rest>/[A-Za-z0-9._/\-]+)")
+# We intentionally limit scope to ".cursor/..." and ".cursor/..." so we don't touch "go build ./..." etc.
+SQ_PATH = re.compile(r"'(?P<prefix>\./)?(?P<root>\.cursor|\.cursor)(?P<rest>/[^']*)'")
+DQ_PATH = re.compile(r"\"(?P<prefix>\./)?(?P<root>\.cursor|\.cursor)(?P<rest>/[^\"]*)\"")
+BARE_PATH = re.compile(r"(?P<lead>(?:^|\s))(?P<prefix>\./)?(?P<root>\.cursor|\.cursor)(?P<rest>/[A-Za-z0-9._/\-]+)")
 
 NODE_INLINE = re.compile(r"\bnode\b\s+-(e|p)\b|\bnode\b\s+--eval\b")
 
@@ -126,7 +126,7 @@ def walk_and_patch_hooks(data: Any) -> List[Change]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--file", default=".claude/settings.json", help="Path to settings.json (default: .claude/settings.json)")
+    ap.add_argument("--file", default=".cursor/settings.json", help="Path to settings.json (default: .cursor/settings.json)")
     ap.add_argument("--apply", action="store_true", help="Write changes (default: dry-run)")
     ap.add_argument("--backup", action="store_true", help="Create backup before writing")
     ap.add_argument("--show", type=int, default=30, help="Show first N changes")
@@ -147,7 +147,7 @@ def main() -> int:
     changes = walk_and_patch_hooks(data)
 
     if not changes:
-        print("No hook commands needed changes (already anchored or no .cursor/.claude paths found).")
+        print("No hook commands needed changes (already anchored or no .cursor/.cursor paths found).")
         return 0
 
     print(f"{'APPLY' if args.apply else 'DRY-RUN'}: {len(changes)} command(s) will be updated.")
@@ -188,12 +188,12 @@ python tools/absolutize_hooks_with_project_dir.py --apply --backup
 # 2) 変更後の確認コマンド（おすすめ）
 
 ```bash
-# .claude/settings.json に .cursor/ が "相対で" 残ってないか（0件が理想）
-rg -n '(^|[^\$])(\./)?\.cursor/' .claude/settings.json
-rg -n '(^|[^\$])(\./)?\.claude/' .claude/settings.json
+# .cursor/settings.json に .cursor/ が "相対で" 残ってないか（0件が理想）
+rg -n '(^|[^\$])(\./)?\.cursor/' .cursor/settings.json
+rg -n '(^|[^\$])(\./)?\.cursor/' .cursor/settings.json
 
 # $CLAUDE_PROJECT_DIR が入ったか
-rg -n 'CLAUDE_PROJECT_DIR' .claude/settings.json
+rg -n 'CLAUDE_PROJECT_DIR' .cursor/settings.json
 ```
 
 ---
@@ -210,4 +210,4 @@ rg -n 'CLAUDE_PROJECT_DIR' .claude/settings.json
 
 ---
 
-必要なら次に、あなたの現状の `.claude/settings.json` を前提に「**evaluate-session / python-after-edit / python-stop-checks** の3つだけ確実に動く最小 hooks セット（絶対パス＋フォールバック＋Windows配慮）」を提示します。
+必要なら次に、あなたの現状の `.cursor/settings.json` を前提に「**evaluate-session / python-after-edit / python-stop-checks** の3つだけ確実に動く最小 hooks セット（絶対パス＋フォールバック＋Windows配慮）」を提示します。
