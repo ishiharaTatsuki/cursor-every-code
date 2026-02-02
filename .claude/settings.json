@@ -40,7 +40,7 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/pretool-block-doc-write.js\""
           }
         ],
-        "description": "Block creation of random .md files - keeps docs consolidated"
+        "description": "Block creation of random .md/.txt files - keeps docs consolidated"
       },
       {
         "matcher": "Edit|Write",
