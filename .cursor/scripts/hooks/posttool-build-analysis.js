@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 "use strict";
 
+/**
+ * PostToolUse (Bash): Example async hook for build analysis.
+ *
+ * Intentionally minimal: only prints a message when build commands are detected.
+ */
+
 const fs = require("fs");
 
 function readStdinJson() {
@@ -12,15 +18,11 @@ function readStdinJson() {
   }
 }
 
-function main() {
-  const input = readStdinJson();
-  const cmd = String(input?.tool_input?.command || "");
+const input = readStdinJson();
+const cmd = (input && input.tool_input && input.tool_input.command) ? String(input.tool_input.command) : "";
 
-  const buildRe = /(npm run build|pnpm build|yarn build)/;
-  if (!buildRe.test(cmd)) process.exit(0);
+const BUILD_RE = /(\bnpm\s+run\s+build\b|\bpnpm\s+build\b|\byarn\s+build\b)/;
+if (!cmd || !BUILD_RE.test(cmd)) process.exit(0);
 
-  console.error("[Hook] Build completed - async analysis running in background");
-  process.exit(0);
-}
-
-main();
+console.error("[Hook] Build completed - async analysis running in background");
+process.exit(0);

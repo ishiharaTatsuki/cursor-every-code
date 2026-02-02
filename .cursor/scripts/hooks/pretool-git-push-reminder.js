@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 "use strict";
 
+/**
+ * PreToolUse (Bash): Reminder before git push.
+ * Non-blocking.
+ */
+
 const fs = require("fs");
 
 function readStdinJson() {
@@ -12,15 +17,11 @@ function readStdinJson() {
   }
 }
 
-function main() {
-  const input = readStdinJson();
-  const cmd = String(input?.tool_input?.command || "");
+const input = readStdinJson();
+const cmd = (input && input.tool_input && input.tool_input.command) ? String(input.tool_input.command) : "";
 
-  if (!/\bgit\s+push\b/.test(cmd)) process.exit(0);
+if (!cmd || !/\bgit\s+push\b/.test(cmd)) process.exit(0);
 
-  console.error("[Hook] Review changes before push...");
-  console.error("[Hook] Continuing with push (remove this hook to add interactive review)");
-  process.exit(0);
-}
-
-main();
+console.error("[Hook] Review changes before push...");
+console.error("[Hook] Continuing with push (remove this hook to add interactive review)");
+process.exit(0);

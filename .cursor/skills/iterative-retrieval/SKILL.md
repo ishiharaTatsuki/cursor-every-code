@@ -1,27 +1,27 @@
 ---
 name: iterative-retrieval
-description: Pattern for progressively refining context retrieval so subagents get the right files without blowing context limits.
+description: Pattern for progressively refining context retrieval to solve the subagent context problem
 ---
 
 # Iterative Retrieval Pattern
 
-Solves the "context problem" in multi-agent workflows where a subagent doesn't know what context it needs until it starts working.
+Solves the "context problem" in multi-agent workflows where subagents don't know what context they need until they start working.
 
 ## The Problem
 
 Subagents are spawned with limited context. They don't know:
-- Which files contain the relevant implementation
-- What naming conventions and patterns exist in the repo
+- Which files contain relevant code
+- What patterns exist in the codebase
 - What terminology the project uses
 
 Standard approaches fail:
-- **Send everything**: exceeds context limits
-- **Send nothing**: agent lacks critical information
-- **Guess what's needed**: often wrong
+- **Send everything**: Exceeds context limits
+- **Send nothing**: Agent lacks critical information
+- **Guess what's needed**: Often wrong
 
 ## The Solution: Iterative Retrieval
 
-A 4-phase loop that progressively refines context.
+A 4-phase loop that progressively refines context:
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -41,97 +41,94 @@ A 4-phase loop that progressively refines context.
 
 ### Phase 1: DISPATCH
 
-Start broad: collect candidate files by patterns + keywords.
+Initial broad query to gather candidate files:
 
-Python-flavored pseudocode:
+```javascript
+// Start with high-level intent
+const initialQuery = {
+  patterns: ['src/**/*.ts', 'lib/**/*.ts'],
+  keywords: ['authentication', 'user', 'session'],
+  excludes: ['*.test.ts', '*.spec.ts']
+};
 
-```python
-initial_query = {
-  "patterns": [
-    "src/**/*",
-    "app/**/*",
-    "**/*.py",
-    "**/*.{js,ts,tsx}",
-  ],
-  "keywords": ["auth", "token", "session", "rate limit"],
-  "excludes": ["**/*.test.*", "**/*.spec.*", "**/node_modules/**", "**/.venv/**"],
-}
-
-candidates = retrieve_files(initial_query)
+// Dispatch to retrieval agent
+const candidates = await retrieveFiles(initialQuery);
 ```
 
 ### Phase 2: EVALUATE
 
-Score each candidate for relevance and identify what's missing.
+Assess retrieved content for relevance:
 
-```python
-from dataclasses import dataclass
-
-@dataclass
-class Eval:
-    path: str
-    relevance: float  # 0.0-1.0
-    reason: str
-    missing_context: list[str]
-
-
-def evaluate_relevance(files: list[dict], task: str) -> list[Eval]:
-    out: list[Eval] = []
-    for f in files:
-        out.append(Eval(
-            path=f["path"],
-            relevance=score_relevance(f["content"], task),
-            reason=explain_relevance(f["content"], task),
-            missing_context=identify_gaps(f["content"], task),
-        ))
-    return out
+```javascript
+function evaluateRelevance(files, task) {
+  return files.map(file => ({
+    path: file.path,
+    relevance: scoreRelevance(file.content, task),
+    reason: explainRelevance(file.content, task),
+    missingContext: identifyGaps(file.content, task)
+  }));
+}
 ```
 
-Scoring rule of thumb:
-- **High (0.8-1.0)**: directly implements the target behavior
-- **Medium (0.5-0.7)**: related patterns / types / shared utilities
-- **Low (0.2-0.4)**: tangentially related
-- **None (0-0.2)**: not relevant → exclude
+Scoring criteria:
+- **High (0.8-1.0)**: Directly implements target functionality
+- **Medium (0.5-0.7)**: Contains related patterns or types
+- **Low (0.2-0.4)**: Tangentially related
+- **None (0-0.2)**: Not relevant, exclude
 
 ### Phase 3: REFINE
 
-Update patterns/keywords based on what you learned in Phase 2.
+Update search criteria based on evaluation:
 
-```python
-def refine_query(evals: list[Eval], prev: dict) -> dict:
-    high = [e for e in evals if e.relevance >= 0.7]
-    low = [e for e in evals if e.relevance < 0.2]
+```javascript
+function refineQuery(evaluation, previousQuery) {
+  return {
+    // Add new patterns discovered in high-relevance files
+    patterns: [...previousQuery.patterns, ...extractPatterns(evaluation)],
 
-    return {
-        "patterns": sorted(set(prev["patterns"] + extract_patterns(high))),
-        "keywords": sorted(set(prev["keywords"] + extract_keywords(high))),
-        "excludes": sorted(set(prev["excludes"] + [e.path for e in low])),
-        "focus_areas": sorted(set(x for e in high for x in e.missing_context)),
-    }
+    // Add terminology found in codebase
+    keywords: [...previousQuery.keywords, ...extractKeywords(evaluation)],
+
+    // Exclude confirmed irrelevant paths
+    excludes: [...previousQuery.excludes, ...evaluation
+      .filter(e => e.relevance < 0.2)
+      .map(e => e.path)
+    ],
+
+    // Target specific gaps
+    focusAreas: evaluation
+      .flatMap(e => e.missingContext)
+      .filter(unique)
+  };
+}
 ```
 
 ### Phase 4: LOOP
 
-Repeat with refined criteria (max 3 cycles). Stop early once you have "enough" context.
+Repeat with refined criteria (max 3 cycles):
 
-```python
-def iterative_retrieve(task: str, max_cycles: int = 3) -> list[Eval]:
-    query = create_initial_query(task)
-    best: list[Eval] = []
+```javascript
+async function iterativeRetrieve(task, maxCycles = 3) {
+  let query = createInitialQuery(task);
+  let bestContext = [];
 
-    for _ in range(max_cycles):
-        candidates = retrieve_files(query)
-        evals = evaluate_relevance(candidates, task)
+  for (let cycle = 0; cycle < maxCycles; cycle++) {
+    const candidates = await retrieveFiles(query);
+    const evaluation = evaluateRelevance(candidates, task);
 
-        high = [e for e in evals if e.relevance >= 0.7]
-        best = merge_context(best, high)
+    // Check if we have sufficient context
+    const highRelevance = evaluation.filter(e => e.relevance >= 0.7);
+    if (highRelevance.length >= 3 && !hasCriticalGaps(evaluation)) {
+      return highRelevance;
+    }
 
-        if len(high) >= 3 and not has_critical_gaps(evals):
-            return best
+    // Refine and continue
+    query = refineQuery(evaluation, query);
+    bestContext = mergeContext(bestContext, highRelevance);
+  }
 
-        query = refine_query(evals, query)
-
-    return best
+  return bestContext;
+}
 ```
 
 ## Practical Examples
@@ -139,18 +136,19 @@ def iterative_retrieve(task: str, max_cycles: int = 3) -> list[Eval]:
 ### Example 1: Bug Fix Context
 
 ```
-Task: "Fix authentication token expiry bug"
+Task: "Fix the authentication token expiry bug"
 
 Cycle 1:
-  DISPATCH: search keywords ["token", "expiry", "auth"] in src/** and **/*.py
-  EVALUATE: found auth.py (0.9), tokens.py (0.8), user.py (0.3)
-  REFINE: add keywords ["refresh", "jwt"]; exclude user.py
+  DISPATCH: Search for "token", "auth", "expiry" in src/**
+  EVALUATE: Found auth.ts (0.9), tokens.ts (0.8), user.ts (0.3)
+  REFINE: Add "refresh", "jwt" keywords; exclude user.ts
 
 Cycle 2:
-  DISPATCH: refined search
-  EVALUATE: found session_manager.py (0.95), jwt_utils.py (0.85)
+  DISPATCH: Search refined terms
+  EVALUATE: Found session-manager.ts (0.95), jwt-utils.ts (0.85)
+  REFINE: Sufficient context (2 high-relevance files)
 
-Result: auth.py, tokens.py, session_manager.py, jwt_utils.py
+Result: auth.ts, tokens.ts, session-manager.ts, jwt-utils.ts
 ```
 
 ### Example 2: Feature Implementation
@@ -159,15 +157,21 @@ Result: auth.py, tokens.py, session_manager.py, jwt_utils.py
 Task: "Add rate limiting to API endpoints"
 
 Cycle 1:
-  DISPATCH: search ["rate", "limit", "throttle"] in api/**, app/**, **/*.py
-  EVALUATE: no "rate" but found "throttle" middleware pattern
-  REFINE: focus areas: middleware chain, router setup
+  DISPATCH: Search "rate", "limit", "api" in routes/**
+  EVALUATE: No matches - codebase uses "throttle" terminology
+  REFINE: Add "throttle", "middleware" keywords
 
 Cycle 2:
-  DISPATCH: refined search
-  EVALUATE: found throttle_middleware.py (0.9), routes.py (0.8)
+  DISPATCH: Search refined terms
+  EVALUATE: Found throttle.ts (0.9), middleware/index.ts (0.7)
+  REFINE: Need router patterns
 
-Result: throttle_middleware.py, routes.py
+Cycle 3:
+  DISPATCH: Search "router", "express" patterns
+  EVALUATE: Found router-setup.ts (0.8)
+  REFINE: Sufficient context
+
+Result: throttle.ts, middleware/index.ts, router-setup.ts
 ```
 
 ## Integration with Agents
@@ -177,20 +181,22 @@ Use in agent prompts:
 ```markdown
 When retrieving context for this task:
 1. Start with broad keyword search
-2. Score each candidate file's relevance (0-1)
-3. Explicitly list what's still missing
-4. Refine patterns/keywords and repeat (max 3 cycles)
-5. Return files with relevance >= 0.7 plus any "bridge" utilities
+2. Evaluate each file's relevance (0-1 scale)
+3. Identify what context is still missing
+4. Refine search criteria and repeat (max 3 cycles)
+5. Return files with relevance >= 0.7
 ```
 
 ## Best Practices
 
-1. **Start broad, narrow progressively**
-2. **Learn repo terminology** (first cycle often reveals naming conventions)
-3. **Track missing context explicitly**
-4. **Stop at "good enough"** (3 high-relevance files beats 10 mediocre ones)
-5. **Exclude confidently** (low relevance rarely becomes high)
+1. **Start broad, narrow progressively** - Don't over-specify initial queries
+2. **Learn codebase terminology** - First cycle often reveals naming conventions
+3. **Track what's missing** - Explicit gap identification drives refinement
+4. **Stop at "good enough"** - 3 high-relevance files beats 10 mediocre ones
+5. **Exclude confidently** - Low-relevance files won't become relevant
 
 ## Related
 
 - [The Longform Guide](https://x.com/affaanmustafa/status/2014040193557471352) - Subagent orchestration section
+- `continuous-learning` skill - For patterns that improve over time
+- Agent definitions in `./.claude/agents/`

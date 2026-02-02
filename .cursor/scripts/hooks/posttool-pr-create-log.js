@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 "use strict";
 
+/**
+ * PostToolUse (Bash): After `gh pr create`, print the PR URL and a review command.
+ * Non-blocking.
+ */
+
 const fs = require("fs");
 
 function readStdinJson() {
@@ -12,33 +17,23 @@ function readStdinJson() {
   }
 }
 
-function main() {
-  const input = readStdinJson();
-  const cmd = String(input?.tool_input?.command || "");
-  if (!/gh\s+pr\s+create/.test(cmd)) process.exit(0);
+const input = readStdinJson();
+const cmd = (input && input.tool_input && input.tool_input.command) ? String(input.tool_input.command) : "";
+if (!cmd || !/\bgh\s+pr\s+create\b/.test(cmd)) process.exit(0);
 
-  const out =
-    String(
-      input?.tool_output?.output ||
-        input?.tool_output?.stdout ||
-        input?.tool_response?.output ||
-        input?.tool_response?.stdout ||
-        ""
-    );
+const out = (input && input.tool_output && typeof input.tool_output.output === "string")
+  ? input.tool_output.output
+  : (input && input.tool_output && typeof input.tool_output.stdout === "string")
+    ? input.tool_output.stdout
+    : "";
 
-  const m = out.match(/https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/);
-  if (!m) process.exit(0);
+const m = out.match(/https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/);
+if (!m) process.exit(0);
 
-  const url = m[0];
-  console.error("[Hook] PR created: " + url);
+const url = m[0];
+const repo = url.replace(/https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/\d+/, "$1");
+const pr = url.replace(/.*\/pull\/(\d+)/, "$1");
 
-  const repoMatch = url.match(/https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/);
-  if (!repoMatch) process.exit(0);
-
-  const repo = repoMatch[1];
-  const pr = repoMatch[2];
-  console.error("[Hook] To review: gh pr review " + pr + " --repo " + repo);
-  process.exit(0);
-}
-
-main();
+console.error(`[Hook] PR created: ${url}`);
+console.error(`[Hook] To review: gh pr review ${pr} --repo ${repo}`);
+process.exit(0);
