@@ -1,168 +1,409 @@
 ---
 name: tdd-workflow
-description: Use this skill when writing new features, fixing bugs, or refactoring. Python-first TDD workflow (pytest/ruff/mypy) with optional Node.js notes.
+description: Use this skill when writing new features, fixing bugs, or refactoring code. Enforces test-driven development with 80%+ coverage including unit, integration, and E2E tests.
 ---
 
 # Test-Driven Development Workflow
 
-This skill enforces a practical TDD loop: **Red → Green → Refactor**, plus a coverage sanity check.
+This skill ensures all code development follows TDD principles with comprehensive test coverage.
 
 ## When to Activate
 
-- Writing new features
-- Fixing bugs
-- Refactoring
+- Writing new features or functionality
+- Fixing bugs or issues
+- Refactoring existing code
 - Adding API endpoints
-- Adding business logic / data validations
+- Creating new components
 
 ## Core Principles
 
-### 1) Tests before code
-Write the failing test first, then implement the minimum code to pass.
+### 1. Tests BEFORE Code
+ALWAYS write tests first, then implement code to make tests pass.
 
-### 2) Prefer deterministic, fast tests
-- Keep unit tests fast (< 1s if possible)
-- Isolate external services (mock or use test containers)
-- Avoid flaky timing assertions
+### 2. Coverage Requirements
+- Minimum 80% coverage (unit + integration + E2E)
+- All edge cases covered
+- Error scenarios tested
+- Boundary conditions verified
 
-### 3) Coverage target (guideline)
-- Target **80%+** on critical packages (domain logic, services)
-- Allow lower coverage on glue code, migrations, and generated code
-- A single high-value test is better than many low-value assertions
+### 3. Test Types
 
-## Test Types (Python)
+#### Unit Tests
+- Individual functions and utilities
+- Component logic
+- Pure functions
+- Helpers and utilities
 
-### Unit tests (pytest)
-- Pure functions / utilities
-- Domain logic (validation, transforms)
-- Small services with dependencies mocked
+#### Integration Tests
+- API endpoints
+- Database operations
+- Service interactions
+- External API calls
 
-**Example:**
+#### E2E Tests (Playwright)
+- Critical user flows
+- Complete workflows
+- Browser automation
+- UI interactions
 
-```python
-# tests/test_slugify.py
-from myapp.text import slugify
+## TDD Workflow Steps
 
-def test_slugify_basic():
-    assert slugify("Hello, World!") == "hello-world"
+### Step 1: Write User Journeys
+```
+As a [role], I want to [action], so that [benefit]
 
-
-def test_slugify_trims_and_collapses_spaces():
-    assert slugify("  a   b  ") == "a-b"
+Example:
+As a user, I want to search for markets semantically,
+so that I can find relevant markets even without exact keywords.
 ```
 
-### Integration tests
-- DB queries
-- Repository layer
-- HTTP endpoints (FastAPI/Flask)
+### Step 2: Generate Test Cases
+For each user journey, create comprehensive test cases:
 
-**Example (FastAPI):**
+```typescript
+describe('Semantic Search', () => {
+  it('returns relevant markets for query', async () => {
+    // Test implementation
+  })
 
-```python
-# tests/test_users_api.py
-from fastapi.testclient import TestClient
-from myapp.main import app
+  it('handles empty query gracefully', async () => {
+    // Test edge case
+  })
 
-client = TestClient(app)
+  it('falls back to substring search when Redis unavailable', async () => {
+    // Test fallback behavior
+  })
 
-
-def test_create_user_validates_input():
-    r = client.post("/users", json={"email": "not-an-email"})
-    assert r.status_code in (400, 422)
-
-
-def test_create_user_success():
-    r = client.post("/users", json={"email": "a@example.com"})
-    assert r.status_code == 201
+  it('sorts results by similarity score', async () => {
+    // Test sorting logic
+  })
+})
 ```
 
-### Contract / boundary tests
-- Webhook payload validation
-- Third-party API client assumptions
-- Backward compatibility for public functions
-
-### E2E tests (optional)
-Only if your project has user flows or multi-service workflows.
-- UI: Playwright (JS) or Playwright Python
-- API workflows: run against a test environment with seeded data
-
-## The TDD Workflow
-
-### Step 1: Write a small acceptance statement
-```
-Given [context]
-When  [action]
-Then  [outcome]
+### Step 3: Run Tests (They Should Fail)
+```bash
+npm test
+# Tests should fail - we haven't implemented yet
 ```
 
-### Step 2: Write the failing test (RED)
-- Smallest test that captures the behavior
-- One reason to fail
+### Step 4: Implement Code
+Write minimal code to make tests pass:
 
-### Step 3: Make it pass (GREEN)
-- Minimal implementation
-- No premature optimization
+```typescript
+// Implementation guided by tests
+export async function searchMarkets(query: string) {
+  // Implementation here
+}
+```
 
-### Step 4: Refactor safely
+### Step 5: Run Tests Again
+```bash
+npm test
+# Tests should now pass
+```
+
+### Step 6: Refactor
+Improve code quality while keeping tests green:
 - Remove duplication
 - Improve naming
-- Simplify control flow
-- Add type hints where helpful
+- Optimize performance
+- Enhance readability
 
-### Step 5: Run the “quality loop”
-Before running commands, **auto-detect your repo tooling** (uv/poetry/pdm/pipenv, npm/pnpm, etc.):
-
+### Step 7: Verify Coverage
 ```bash
-node .cursor/scripts/recommend-commands.js
+npm run test:coverage
+# Verify 80%+ coverage achieved
 ```
 
-If hooks are enabled, the snapshot is also available at `.cursor/.hook_state/tooling.json`.
+## Testing Patterns
 
-Then run the Python quality loop using the detected runner prefix (examples):
+### Unit Test Pattern (Jest/Vitest)
+```typescript
+import { render, screen, fireEvent } from '@testing-library/react'
+import { Button } from './Button'
 
-```bash
-# uv
-uv run ruff format .
-uv run ruff check .
-uv run mypy .
-uv run pytest -q
+describe('Button Component', () => {
+  it('renders with correct text', () => {
+    render(<Button>Click me</Button>)
+    expect(screen.getByText('Click me')).toBeInTheDocument()
+  })
 
-# poetry
-poetry run ruff format .
-poetry run ruff check .
-poetry run mypy .
-poetry run pytest -q
+  it('calls onClick when clicked', () => {
+    const handleClick = jest.fn()
+    render(<Button onClick={handleClick}>Click</Button>)
 
-# fallback (plain)
-ruff format .
-ruff check .
-mypy .
-pytest -q
+    fireEvent.click(screen.getByRole('button'))
+
+    expect(handleClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('is disabled when disabled prop is true', () => {
+    render(<Button disabled>Click</Button>)
+    expect(screen.getByRole('button')).toBeDisabled()
+  })
+})
 ```
 
-Coverage (recommended for PRs):
+### API Integration Test Pattern
+```typescript
+import { NextRequest } from 'next/server'
+import { GET } from './route'
 
-```bash
-# uv
-uv run pytest -q --cov=myapp --cov-report=term-missing
+describe('GET /api/markets', () => {
+  it('returns markets successfully', async () => {
+    const request = new NextRequest('http://localhost/api/markets')
+    const response = await GET(request)
+    const data = await response.json()
 
-# poetry
-poetry run pytest -q --cov=myapp --cov-report=term-missing
+    expect(response.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(Array.isArray(data.data)).toBe(true)
+  })
 
-# fallback
-pytest -q --cov=myapp --cov-report=term-missing
+  it('validates query parameters', async () => {
+    const request = new NextRequest('http://localhost/api/markets?limit=invalid')
+    const response = await GET(request)
+
+    expect(response.status).toBe(400)
+  })
+
+  it('handles database errors gracefully', async () => {
+    // Mock database failure
+    const request = new NextRequest('http://localhost/api/markets')
+    // Test error handling
+  })
+})
 ```
 
-## Practical Guidance
+### E2E Test Pattern (Playwright)
+```typescript
+import { test, expect } from '@playwright/test'
 
-- Prefer **pydantic** (or dataclasses + validators) for input schemas
-- Add **type hints** for public APIs and complex data flows
-- If a bug was reported, add a regression test that fails *before* the fix
+test('user can search and filter markets', async ({ page }) => {
+  // Navigate to markets page
+  await page.goto('/')
+  await page.click('a[href="/markets"]')
 
-## Node.js Notes (if your project includes Node)
+  // Verify page loaded
+  await expect(page.locator('h1')).toContainText('Markets')
 
-- Unit tests: vitest/jest
-- Integration tests: supertest (API) or DB test harness
-- Optional UI E2E: Playwright
-- Prefer repo-specific commands (e.g., `pnpm test`, `npm test`).
-- Prefer local dependency execution (e.g., `pnpm exec prettier`) and avoid auto-installs.
+  // Search for markets
+  await page.fill('input[placeholder="Search markets"]', 'election')
+
+  // Wait for debounce and results
+  await page.waitForTimeout(600)
+
+  // Verify search results displayed
+  const results = page.locator('[data-testid="market-card"]')
+  await expect(results).toHaveCount(5, { timeout: 5000 })
+
+  // Verify results contain search term
+  const firstResult = results.first()
+  await expect(firstResult).toContainText('election', { ignoreCase: true })
+
+  // Filter by status
+  await page.click('button:has-text("Active")')
+
+  // Verify filtered results
+  await expect(results).toHaveCount(3)
+})
+
+test('user can create a new market', async ({ page }) => {
+  // Login first
+  await page.goto('/creator-dashboard')
+
+  // Fill market creation form
+  await page.fill('input[name="name"]', 'Test Market')
+  await page.fill('textarea[name="description"]', 'Test description')
+  await page.fill('input[name="endDate"]', '2025-12-31')
+
+  // Submit form
+  await page.click('button[type="submit"]')
+
+  // Verify success message
+  await expect(page.locator('text=Market created successfully')).toBeVisible()
+
+  // Verify redirect to market page
+  await expect(page).toHaveURL(/\/markets\/test-market/)
+})
+```
+
+## Test File Organization
+
+```
+src/
+├── components/
+│   ├── Button/
+│   │   ├── Button.tsx
+│   │   ├── Button.test.tsx          # Unit tests
+│   │   └── Button.stories.tsx       # Storybook
+│   └── MarketCard/
+│       ├── MarketCard.tsx
+│       └── MarketCard.test.tsx
+├── app/
+│   └── api/
+│       └── markets/
+│           ├── route.ts
+│           └── route.test.ts         # Integration tests
+└── e2e/
+    ├── markets.spec.ts               # E2E tests
+    ├── trading.spec.ts
+    └── auth.spec.ts
+```
+
+## Mocking External Services
+
+### Supabase Mock
+```typescript
+jest.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: jest.fn(() => ({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => Promise.resolve({
+          data: [{ id: 1, name: 'Test Market' }],
+          error: null
+        }))
+      }))
+    }))
+  }
+}))
+```
+
+### Redis Mock
+```typescript
+jest.mock('@/lib/redis', () => ({
+  searchMarketsByVector: jest.fn(() => Promise.resolve([
+    { slug: 'test-market', similarity_score: 0.95 }
+  ])),
+  checkRedisHealth: jest.fn(() => Promise.resolve({ connected: true }))
+}))
+```
+
+### OpenAI Mock
+```typescript
+jest.mock('@/lib/openai', () => ({
+  generateEmbedding: jest.fn(() => Promise.resolve(
+    new Array(1536).fill(0.1) // Mock 1536-dim embedding
+  ))
+}))
+```
+
+## Test Coverage Verification
+
+### Run Coverage Report
+```bash
+npm run test:coverage
+```
+
+### Coverage Thresholds
+```json
+{
+  "jest": {
+    "coverageThresholds": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80,
+        "statements": 80
+      }
+    }
+  }
+}
+```
+
+## Common Testing Mistakes to Avoid
+
+### ❌ WRONG: Testing Implementation Details
+```typescript
+// Don't test internal state
+expect(component.state.count).toBe(5)
+```
+
+### ✅ CORRECT: Test User-Visible Behavior
+```typescript
+// Test what users see
+expect(screen.getByText('Count: 5')).toBeInTheDocument()
+```
+
+### ❌ WRONG: Brittle Selectors
+```typescript
+// Breaks easily
+await page.click('.css-class-xyz')
+```
+
+### ✅ CORRECT: Semantic Selectors
+```typescript
+// Resilient to changes
+await page.click('button:has-text("Submit")')
+await page.click('[data-testid="submit-button"]')
+```
+
+### ❌ WRONG: No Test Isolation
+```typescript
+// Tests depend on each other
+test('creates user', () => { /* ... */ })
+test('updates same user', () => { /* depends on previous test */ })
+```
+
+### ✅ CORRECT: Independent Tests
+```typescript
+// Each test sets up its own data
+test('creates user', () => {
+  const user = createTestUser()
+  // Test logic
+})
+
+test('updates user', () => {
+  const user = createTestUser()
+  // Update logic
+})
+```
+
+## Continuous Testing
+
+### Watch Mode During Development
+```bash
+npm test -- --watch
+# Tests run automatically on file changes
+```
+
+### Pre-Commit Hook
+```bash
+# Runs before every commit
+npm test && npm run lint
+```
+
+### CI/CD Integration
+```yaml
+# GitHub Actions
+- name: Run Tests
+  run: npm test -- --coverage
+- name: Upload Coverage
+  uses: codecov/codecov-action@v3
+```
+
+## Best Practices
+
+1. **Write Tests First** - Always TDD
+2. **One Assert Per Test** - Focus on single behavior
+3. **Descriptive Test Names** - Explain what's tested
+4. **Arrange-Act-Assert** - Clear test structure
+5. **Mock External Dependencies** - Isolate unit tests
+6. **Test Edge Cases** - Null, undefined, empty, large
+7. **Test Error Paths** - Not just happy paths
+8. **Keep Tests Fast** - Unit tests < 50ms each
+9. **Clean Up After Tests** - No side effects
+10. **Review Coverage Reports** - Identify gaps
+
+## Success Metrics
+
+- 80%+ code coverage achieved
+- All tests passing (green)
+- No skipped or disabled tests
+- Fast test execution (< 30s for unit tests)
+- E2E tests cover critical user flows
+- Tests catch bugs before production
+
+---
+
+**Remember**: Tests are not optional. They are the safety net that enables confident refactoring, rapid development, and production reliability.

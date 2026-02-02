@@ -52,7 +52,7 @@ Edit `config.json` to customize:
 
 ## Hook Setup
 
-Add to your `./.cursor/settings.json`:
+Add to your `./.claude/settings.json`:
 
 ```json
 {

@@ -1,155 +1,110 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Continuous Learning v2 - Observation Hook
 #
 # Captures tool use events for pattern analysis.
-# Claude Code passes hook data via stdin as JSON.
-#
-# Hook config (in ./.cursor/settings.json):
-#
-# If installed as a plugin, use ${CLAUDE_PLUGIN_ROOT}:
-# {
-#   "hooks": {
-#     "PreToolUse": [{
-#       "matcher": "*",
-#       "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/skills/continuous-learning-v2/hooks/observe.sh pre" }]
-#     }],
-#     "PostToolUse": [{
-#       "matcher": "*",
-#       "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/skills/continuous-learning-v2/hooks/observe.sh post" }]
-#     }]
-#   }
-# }
-#
-# If installed manually to ./.cursor/skills:
-# {
-#   "hooks": {
-#     "PreToolUse": [{
-#       "matcher": "*",
-#       "hooks": [{ "type": "command", "command": "./.cursor/skills/continuous-learning-v2/hooks/observe.sh pre" }]
-#     }],
-#     "PostToolUse": [{
-#       "matcher": "*",
-#       "hooks": [{ "type": "command", "command": "./.cursor/skills/continuous-learning-v2/hooks/observe.sh post" }]
-#     }]
-#   }
-# }
+# Claude Code / Cursor passes hook data via stdin as JSON.
 
-set -e
+set -euo pipefail
 
-CONFIG_DIR="./.cursor/homunculus"
-OBSERVATIONS_FILE="${CONFIG_DIR}/observations.jsonl"
+MODE="${1:-}"
+if [[ "$MODE" != "pre" && "$MODE" != "post" ]]; then
+  echo "Usage: observe.sh pre|post" >&2
+  exit 1
+fi
+
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+CONFIG_DIR="$PROJECT_DIR/.claude/homunculus"
+OBSERVATIONS_FILE="$CONFIG_DIR/observations.jsonl"
 MAX_FILE_SIZE_MB=10
 
-# Ensure directory exists
 mkdir -p "$CONFIG_DIR"
 
 # Skip if disabled
-if [ -f "$CONFIG_DIR/disabled" ]; then
-  exit 0
-fi
-
-# Read JSON from stdin (Claude Code hook format)
-INPUT_JSON="$(cat)"
-
-# Exit if no input
-if [ -z "$INPUT_JSON" ]; then
-  exit 0
-fi
-
-# Parse using python (more reliable than jq for complex JSON)
-PARSED="$(printf '%s' "$INPUT_JSON" | python3 <<'PY'
-import json
-import sys
-
-try:
-    data = json.load(sys.stdin)
-
-    # Extract fields - Claude Code hook format
-    hook_type = data.get('hook_type', 'unknown')  # PreToolUse or PostToolUse
-    tool_name = data.get('tool_name', data.get('tool', 'unknown'))
-    tool_input = data.get('tool_input', data.get('input', {}))
-    tool_output = data.get('tool_output', data.get('output', ''))
-    session_id = data.get('session_id', 'unknown')
-
-    # Truncate large inputs/outputs
-    if isinstance(tool_input, dict):
-        tool_input_str = json.dumps(tool_input)[:5000]
-    else:
-        tool_input_str = str(tool_input)[:5000]
-
-    if isinstance(tool_output, dict):
-        tool_output_str = json.dumps(tool_output)[:5000]
-    else:
-        tool_output_str = str(tool_output)[:5000]
-
-    # Determine event type
-    event = 'tool_start' if 'Pre' in hook_type else 'tool_complete'
-
-    print(json.dumps({
-        'parsed': True,
-        'event': event,
-        'tool': tool_name,
-        'input': tool_input_str if event == 'tool_start' else None,
-        'output': tool_output_str if event == 'tool_complete' else None,
-        'session': session_id
-    }))
-except Exception as e:
-    print(json.dumps({'parsed': False, 'error': str(e)}))
-PY
-)"
-
-# Check if parsing succeeded
-PARSED_OK="$(printf '%s' "$PARSED" | python3 -c "import json,sys; print(json.load(sys.stdin).get('parsed', False))")"
-
-if [ "$PARSED_OK" != "True" ]; then
-  # Fallback: log raw input for debugging
-  timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-  raw_snippet="$(printf '%s' "$INPUT_JSON" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()[:1000]))')"
-  printf '{"timestamp":"%s","event":"parse_error","raw":%s}
-' "$timestamp" "$raw_snippet" >> "$OBSERVATIONS_FILE"
+if [[ -f "$CONFIG_DIR/disabled" ]]; then
   exit 0
 fi
 
 # Archive if file too large
-if [ -f "$OBSERVATIONS_FILE" ]; then
-  file_size_mb="$(du -m "$OBSERVATIONS_FILE" 2>/dev/null | cut -f1)"
-  if [ "${file_size_mb:-0}" -ge "$MAX_FILE_SIZE_MB" ]; then
-    archive_dir="${CONFIG_DIR}/observations.archive"
+if [[ -f "$OBSERVATIONS_FILE" ]]; then
+  file_size_mb=$(du -m "$OBSERVATIONS_FILE" 2>/dev/null | cut -f1 || echo 0)
+  if [[ "${file_size_mb:-0}" -ge "$MAX_FILE_SIZE_MB" ]]; then
+    archive_dir="$CONFIG_DIR/observations.archive"
     mkdir -p "$archive_dir"
     mv "$OBSERVATIONS_FILE" "$archive_dir/observations-$(date +%Y%m%d-%H%M%S).jsonl"
   fi
 fi
 
-# Build and write observation
-timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+# Read stdin (may be empty)
+INPUT_JSON="$(cat)"
+if [[ -z "${INPUT_JSON}" ]]; then
+  exit 0
+fi
 
-OBSERVATIONS_FILE="$OBSERVATIONS_FILE" OBS_TIMESTAMP="$timestamp" printf '%s' "$PARSED" | python3 <<'PY'
+timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Parse JSON safely (no shell interpolation into Python code)
+python3 <(cat <<'PY'
 import json
-import os
 import sys
 
-parsed = json.load(sys.stdin)
-observation = {
-    'timestamp': os.environ.get('OBS_TIMESTAMP', ''),
-    'event': parsed['event'],
-    'tool': parsed['tool'],
-    'session': parsed['session'],
-}
+mode = sys.argv[1]
+timestamp = sys.argv[2]
+out_path = sys.argv[3]
 
-if parsed.get('input'):
-    observation['input'] = parsed['input']
-if parsed.get('output'):
-    observation['output'] = parsed['output']
+raw = sys.stdin.read()
+if not raw.strip():
+    sys.exit(0)
 
-with open(os.environ['OBSERVATIONS_FILE'], 'a', encoding='utf-8') as f:
-    f.write(json.dumps(observation) + '\n')
+def trunc(v: object, limit: int = 5000) -> str:
+    try:
+        if isinstance(v, (dict, list)):
+            s = json.dumps(v, ensure_ascii=False)
+        else:
+            s = str(v)
+    except Exception:
+        s = "<unserializable>"
+    return s[:limit]
+
+try:
+    data = json.loads(raw)
+
+    tool_name = data.get("tool_name") or data.get("tool") or "unknown"
+    tool_input = data.get("tool_input") or data.get("input") or {}
+    tool_output = data.get("tool_output") or data.get("output") or ""
+    session_id = data.get("session_id") or "unknown"
+
+    event = "tool_start" if mode == "pre" else "tool_complete"
+
+    obs = {
+        "timestamp": timestamp,
+        "event": event,
+        "tool": tool_name,
+        "session": session_id,
+    }
+    if mode == "pre":
+        obs["input"] = trunc(tool_input)
+    else:
+        obs["output"] = trunc(tool_output)
+
+except Exception as e:
+    obs = {
+        "timestamp": timestamp,
+        "event": "parse_error",
+        "error": str(e),
+        "raw": trunc(raw, 1000),
+    }
+
+with open(out_path, "a", encoding="utf-8") as f:
+    f.write(json.dumps(obs, ensure_ascii=False) + "\n")
+
 PY
+) "$MODE" "$timestamp" "$OBSERVATIONS_FILE" <<<"$INPUT_JSON"
 
 # Signal observer if running
-OBSERVER_PID_FILE="${CONFIG_DIR}/.observer.pid"
-if [ -f "$OBSERVER_PID_FILE" ]; then
-  observer_pid="$(cat "$OBSERVER_PID_FILE")"
-  if kill -0 "$observer_pid" 2>/dev/null; then
+OBSERVER_PID_FILE="$CONFIG_DIR/.observer.pid"
+if [[ -f "$OBSERVER_PID_FILE" ]]; then
+  observer_pid=$(cat "$OBSERVER_PID_FILE" || true)
+  if [[ -n "$observer_pid" ]] && kill -0 "$observer_pid" 2>/dev/null; then
     kill -USR1 "$observer_pid" 2>/dev/null || true
   fi
 fi

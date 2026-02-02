@@ -24,7 +24,27 @@ from typing import Optional
 # Configuration
 # ─────────────────────────────────────────────
 
-HOMUNCULUS_DIR = Path.home() / ".cursor" / "homunculus"
+def default_homunculus_dir() -> Path:
+    """Select a default storage directory for v2 state.
+
+    Priority:
+    1) CLAUDE_PROJECT_DIR (when running under Cursor/Claude Code)
+    2) Nearest parent directory containing .cursor or .claude (when run manually)
+    3) User home (~/.claude/homunculus)
+    """
+    env_project = os.environ.get("CLAUDE_PROJECT_DIR")
+    if env_project:
+        return Path(env_project) / ".claude" / "homunculus"
+
+    cwd = Path.cwd().resolve()
+    for p in [cwd] + list(cwd.parents):
+        if (p / ".cursor").exists() or (p / ".claude").exists():
+            return p / ".claude" / "homunculus"
+
+    return Path.home() / ".claude" / "homunculus"
+
+
+HOMUNCULUS_DIR = default_homunculus_dir()
 INSTINCTS_DIR = HOMUNCULUS_DIR / "instincts"
 PERSONAL_DIR = INSTINCTS_DIR / "personal"
 INHERITED_DIR = INSTINCTS_DIR / "inherited"

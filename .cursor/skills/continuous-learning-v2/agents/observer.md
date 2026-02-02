@@ -18,7 +18,7 @@ A background agent that analyzes observations from Claude Code sessions to detec
 
 ## Input
 
-Reads observations from `./.cursor/homunculus/observations.jsonl`:
+Reads observations from `./.claude/homunculus/observations.jsonl`:
 
 ```jsonl
 {"timestamp":"2025-01-22T10:30:00Z","event":"tool_start","session":"abc123","tool":"Edit","input":"..."}
@@ -65,7 +65,7 @@ When certain tools are consistently preferred:
 
 ## Output
 
-Creates/updates instincts in `./.cursor/homunculus/instincts/personal/`:
+Creates/updates instincts in `./.claude/homunculus/instincts/personal/`:
 
 ```yaml
 ---

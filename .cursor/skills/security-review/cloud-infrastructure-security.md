@@ -64,18 +64,16 @@ aws iam enable-mfa-device \
 
 #### Cloud Secrets Managers
 
-```python
-# ✅ CORRECT: Use a managed secrets store (example: AWS Secrets Manager)
-# Python (boto3)
-import json
-import boto3
+```typescript
+// ✅ CORRECT: Use cloud secrets manager
+import { SecretsManager } from '@aws-sdk/client-secrets-manager';
 
-client = boto3.client("secretsmanager", region_name="us-east-1")
-secret = client.get_secret_value(SecretId="prod/api-key")
-api_key = json.loads(secret["SecretString"])["key"]
+const client = new SecretsManager({ region: 'us-east-1' });
+const secret = await client.getSecretValue({ SecretId: 'prod/api-key' });
+const apiKey = JSON.parse(secret.SecretString).key;
 
-# ❌ WRONG: Hardcoded or only local env vars without rotation/auditing
-# api_key = os.environ["API_KEY"]
+// ❌ WRONG: Hardcoded or in environment variables only
+const apiKey = process.env.API_KEY; // Not rotated, not audited
 ```
 
 #### Secrets Rotation
@@ -143,23 +141,26 @@ resource "aws_security_group" "bad" {
 
 #### CloudWatch/Logging Configuration
 
-```python
-# ✅ CORRECT: structured security events (provider-agnostic)
-# Ship these logs to CloudWatch / Datadog / Splunk / etc.
-import json
-import logging
+```typescript
+// ✅ CORRECT: Comprehensive logging
+import { CloudWatchLogsClient, CreateLogStreamCommand } from '@aws-sdk/client-cloudwatch-logs';
 
-logger = logging.getLogger("security")
-
-def log_security_event(event_type: str, user_id: str | None, ip: str | None, result: str):
-    payload = {
-        "type": event_type,
-        "user_id": user_id,
-        "ip": ip,
-        "result": result,
-        # Never include secrets, tokens, raw passwords, or full PII
-    }
-    logger.info(json.dumps(payload))
+const logSecurityEvent = async (event: SecurityEvent) => {
+  await cloudwatch.putLogEvents({
+    logGroupName: '/aws/security/events',
+    logStreamName: 'authentication',
+    logEvents: [{
+      timestamp: Date.now(),
+      message: JSON.stringify({
+        type: event.type,
+        userId: event.userId,
+        ip: event.ip,
+        result: event.result,
+        // Never log sensitive data
+      })
+    }]
+  });
+};
 ```
 
 #### Verification Steps
@@ -235,18 +236,25 @@ jobs:
 
 #### Cloudflare Security Configuration
 
-```python
-# ✅ CORRECT: set security headers (example: FastAPI/Starlette middleware)
-from starlette.middleware.base import BaseHTTPMiddleware
-
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=()"
-        return response
+```typescript
+// ✅ CORRECT: Cloudflare Workers with security headers
+export default {
+  async fetch(request: Request): Promise<Response> {
+    const response = await fetch(request);
+    
+    // Add security headers
+    const headers = new Headers(response.headers);
+    headers.set('X-Frame-Options', 'DENY');
+    headers.set('X-Content-Type-Options', 'nosniff');
+    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    headers.set('Permissions-Policy', 'geolocation=(), microphone=()');
+    
+    return new Response(response.body, {
+      status: response.status,
+      headers
+    });
+  }
+};
 ```
 
 #### WAF Rules

@@ -1,222 +1,494 @@
 ---
 name: security-review
-description: Use this skill when adding auth, handling user input/files, working with secrets, creating API endpoints, or implementing payment/sensitive features. Python-first with Node.js notes.
+description: Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and patterns.
 ---
 
 # Security Review Skill
 
-This skill enforces security best practices and helps spot common vulnerabilities.
+This skill ensures all code follows security best practices and identifies potential vulnerabilities.
 
 ## When to Activate
 
-- Implementing authentication/authorization
-- Handling user input (forms, JSON, query params) or file uploads
-- Creating new API endpoints (especially write endpoints)
-- Working with secrets/credentials
-- Payment, PII, health, financial, or other sensitive domains
-- Integrating third-party APIs / webhooks
+- Implementing authentication or authorization
+- Handling user input or file uploads
+- Creating new API endpoints
+- Working with secrets or credentials
+- Implementing payment features
+- Storing or transmitting sensitive data
+- Integrating third-party APIs
 
 ## Security Checklist
 
-### 1) Secrets Management
+### 1. Secrets Management
 
-#### ❌ Never hardcode secrets
-
-```python
-# DANGEROUS
-OPENAI_API_KEY = "sk-proj-..."
-DB_PASSWORD = "password123"
+#### ❌ NEVER Do This
+```typescript
+const apiKey = "sk-proj-xxxxx"  // Hardcoded secret
+const dbPassword = "password123" // In source code
 ```
 
-#### ✅ Always use environment/config providers
+#### ✅ ALWAYS Do This
+```typescript
+const apiKey = process.env.OPENAI_API_KEY
+const dbUrl = process.env.DATABASE_URL
 
-```python
-import os
-
-api_key = os.environ.get("OPENAI_API_KEY")
-db_url = os.environ.get("DATABASE_URL")
-
-if not api_key:
-    raise RuntimeError("OPENAI_API_KEY not configured")
+// Verify secrets exist
+if (!apiKey) {
+  throw new Error('OPENAI_API_KEY not configured')
+}
 ```
 
-**Python tip (pydantic settings):**
+#### Verification Steps
+- [ ] No hardcoded API keys, tokens, or passwords
+- [ ] All secrets in environment variables
+- [ ] `.env.local` in .gitignore
+- [ ] No secrets in git history
+- [ ] Production secrets in hosting platform (Vercel, Railway)
 
-```python
-from pydantic_settings import BaseSettings
+### 2. Input Validation
 
-class Settings(BaseSettings):
-    openai_api_key: str
-    database_url: str
+#### Always Validate User Input
+```typescript
+import { z } from 'zod'
 
-settings = Settings()  # reads from env by default
+// Define validation schema
+const CreateUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).max(100),
+  age: z.number().int().min(0).max(150)
+})
+
+// Validate before processing
+export async function createUser(input: unknown) {
+  try {
+    const validated = CreateUserSchema.parse(input)
+    return await db.users.create(validated)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, errors: error.errors }
+    }
+    throw error
+  }
+}
 ```
 
-Verification:
-- [ ] No secrets in repo (code, config, docs)
-- [ ] `.env`/`.env.*` are in `.gitignore`
-- [ ] CI/CD uses secret store (GitHub Actions / cloud secrets manager)
-- [ ] Logs do not print tokens/headers
-- [ ] Secrets rotated if leaked
+#### File Upload Validation
+```typescript
+function validateFileUpload(file: File) {
+  // Size check (5MB max)
+  const maxSize = 5 * 1024 * 1024
+  if (file.size > maxSize) {
+    throw new Error('File too large (max 5MB)')
+  }
 
-### 2) Input Validation
+  // Type check
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif']
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Invalid file type')
+  }
 
-#### ✅ Validate *all* external input (Python/FastAPI + pydantic example)
+  // Extension check
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif']
+  const extension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0]
+  if (!extension || !allowedExtensions.includes(extension)) {
+    throw new Error('Invalid file extension')
+  }
 
-```python
-from pydantic import BaseModel, EmailStr, Field
-
-class CreateUser(BaseModel):
-    email: EmailStr
-    name: str = Field(min_length=1, max_length=100)
-    age: int | None = Field(default=None, ge=0, le=150)
+  return true
+}
 ```
 
-```python
-from fastapi import FastAPI
-
-app = FastAPI()
-
-@app.post("/users")
-def create_user(payload: CreateUser):
-    # payload is validated
-    return {"ok": True}
-```
-
-#### ✅ Validate file uploads
-
-- Enforce **size limit**
-- Enforce **content type** (MIME) and **extension**
-- Re-scan/verify server-side (magic bytes) if security-sensitive
-- Store outside the web root, use randomized names
-
-Verification:
-- [ ] All user inputs validated (schema/typing + constraints)
+#### Verification Steps
+- [ ] All user inputs validated with schemas
+- [ ] File uploads restricted (size, type, extension)
+- [ ] No direct use of user input in queries
 - [ ] Whitelist validation (not blacklist)
-- [ ] Error messages do not leak stack traces or internal IDs
-- [ ] No direct use of user input in shell commands
+- [ ] Error messages don't leak sensitive info
 
-### 3) Injection Prevention
+### 3. SQL Injection Prevention
 
-#### SQL Injection
-
-❌ Never build SQL via string concatenation:
-
-```python
-# DANGEROUS
-sql = f"SELECT * FROM users WHERE email = '{email}'"
+#### ❌ NEVER Concatenate SQL
+```typescript
+// DANGEROUS - SQL Injection vulnerability
+const query = `SELECT * FROM users WHERE email = '${userEmail}'`
+await db.query(query)
 ```
 
-✅ Use parameterized queries / ORM binding:
+#### ✅ ALWAYS Use Parameterized Queries
+```typescript
+// Safe - parameterized query
+const { data } = await supabase
+  .from('users')
+  .select('*')
+  .eq('email', userEmail)
 
-```python
-# psycopg / DB-API style
-cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+// Or with raw SQL
+await db.query(
+  'SELECT * FROM users WHERE email = $1',
+  [userEmail]
+)
 ```
 
-```python
-# SQLAlchemy style
-session.execute(text("SELECT * FROM users WHERE email = :email"), {"email": email})
+#### Verification Steps
+- [ ] All database queries use parameterized queries
+- [ ] No string concatenation in SQL
+- [ ] ORM/query builder used correctly
+- [ ] Supabase queries properly sanitized
+
+### 4. Authentication & Authorization
+
+#### JWT Token Handling
+```typescript
+// ❌ WRONG: localStorage (vulnerable to XSS)
+localStorage.setItem('token', token)
+
+// ✅ CORRECT: httpOnly cookies
+res.setHeader('Set-Cookie',
+  `token=${token}; HttpOnly; Secure; SameSite=Strict; Max-Age=3600`)
 ```
 
-#### Command Injection
+#### Authorization Checks
+```typescript
+export async function deleteUser(userId: string, requesterId: string) {
+  // ALWAYS verify authorization first
+  const requester = await db.users.findUnique({
+    where: { id: requesterId }
+  })
 
-- Prefer `subprocess.run([...], shell=False)`
-- Never interpolate user input into a shell command string
+  if (requester.role !== 'admin') {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 403 }
+    )
+  }
 
-Verification:
-- [ ] DB access uses parameters/bind variables
-- [ ] No `shell=True` with user input
-- [ ] No dynamic eval/exec on untrusted data
-
-### 4) AuthN / AuthZ
-
-#### Authentication
-
-- Use secure session cookies (HttpOnly, Secure, SameSite)
-- Set reasonable TTL and rotate refresh tokens
-- Store password hashes with a modern KDF (bcrypt/argon2)
-
-#### Authorization
-
-- Authorization is checked **server-side** on every sensitive action
-- Use explicit ownership/role checks (deny by default)
-
-FastAPI pseudo-pattern:
-
-```python
-# Example check (pseudo)
-if resource.owner_id != current_user.id and not current_user.is_admin:
-    raise HTTPException(status_code=403)
+  // Proceed with deletion
+  await db.users.delete({ where: { id: userId } })
+}
 ```
 
-Verification:
-- [ ] Every write endpoint has auth + authz checks
-- [ ] Multi-tenant data access is scoped (tenant_id)
-- [ ] No “client says admin=true” trust
+#### Row Level Security (Supabase)
+```sql
+-- Enable RLS on all tables
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
-### 5) XSS / HTML Sanitization
+-- Users can only view their own data
+CREATE POLICY "Users view own data"
+  ON users FOR SELECT
+  USING (auth.uid() = id);
 
-If you render user-supplied HTML, sanitize it.
-
-Python example:
-
-```python
-import bleach
-
-safe_html = bleach.clean(user_html, tags=["b", "i", "a"], attributes={"a": ["href"]})
+-- Users can only update their own data
+CREATE POLICY "Users update own data"
+  ON users FOR UPDATE
+  USING (auth.uid() = id);
 ```
 
-Verification:
-- [ ] No raw HTML injection into templates/DOM
-- [ ] Use escaping by default
-- [ ] CSP for web apps where possible
+#### Verification Steps
+- [ ] Tokens stored in httpOnly cookies (not localStorage)
+- [ ] Authorization checks before sensitive operations
+- [ ] Row Level Security enabled in Supabase
+- [ ] Role-based access control implemented
+- [ ] Session management secure
 
-### 6) CSRF
+### 5. XSS Prevention
 
-- For cookie-based auth, enforce CSRF protections
-- SameSite cookies help but are not a full substitute
+#### Sanitize HTML
+```typescript
+import DOMPurify from 'isomorphic-dompurify'
 
-Verification:
-- [ ] CSRF tokens or same-origin protections for state-changing requests
+// ALWAYS sanitize user-provided HTML
+function renderUserContent(html: string) {
+  const clean = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p'],
+    ALLOWED_ATTR: []
+  })
+  return <div dangerouslySetInnerHTML={{ __html: clean }} />
+}
+```
 
-### 7) SSRF / URL Fetching
+#### Content Security Policy
+```typescript
+// next.config.js
+const securityHeaders = [
+  {
+    key: 'Content-Security-Policy',
+    value: `
+      default-src 'self';
+      script-src 'self' 'unsafe-eval' 'unsafe-inline';
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: https:;
+      font-src 'self';
+      connect-src 'self' https://api.example.com;
+    `.replace(/\s{2,}/g, ' ').trim()
+  }
+]
+```
 
-If the service fetches URLs (webhooks previews, importers):
-- Block private IP ranges and metadata endpoints
-- Enforce allowlist of domains or signed URLs
-- Enforce timeouts, size limits, redirect limits
+#### Verification Steps
+- [ ] User-provided HTML sanitized
+- [ ] CSP headers configured
+- [ ] No unvalidated dynamic content rendering
+- [ ] React's built-in XSS protection used
 
-### 8) Rate Limiting / Abuse
+### 6. CSRF Protection
 
-- Add rate limits on login, signup, password reset, OTP
-- Add per-user/per-IP limits on expensive endpoints
+#### CSRF Tokens
+```typescript
+import { csrf } from '@/lib/csrf'
 
-### 9) Logging & Observability
+export async function POST(request: Request) {
+  const token = request.headers.get('X-CSRF-Token')
 
-- Avoid logging PII and secrets
-- Use structured logs
-- Ensure error logging doesn't expose internal stack traces to users
+  if (!csrf.verify(token)) {
+    return NextResponse.json(
+      { error: 'Invalid CSRF token' },
+      { status: 403 }
+    )
+  }
 
-### 10) Supply Chain / Dependencies
+  // Process request
+}
+```
 
-- Pin dependencies (lockfiles)
-- Run vulnerability scans in CI
-- Avoid `curl | bash` install patterns
+#### SameSite Cookies
+```typescript
+res.setHeader('Set-Cookie',
+  `session=${sessionId}; HttpOnly; Secure; SameSite=Strict`)
+```
 
-## Quick “Diff Review” Prompts
+#### Verification Steps
+- [ ] CSRF tokens on state-changing operations
+- [ ] SameSite=Strict on all cookies
+- [ ] Double-submit cookie pattern implemented
 
-When reviewing a change, explicitly check:
-- new endpoints: auth/authz + validation + rate limit
-- DB queries: parameterized
-- secrets: not added to code or logs
-- file operations: path traversal, safe directories
-- network calls: SSRF controls, timeouts
+### 7. Rate Limiting
 
-## Node.js Notes (if your project includes Node)
+#### API Rate Limiting
+```typescript
+import rateLimit from 'express-rate-limit'
 
-- Use env vars for secrets, never commit `.env`
-- Validate input (Zod/Valibot/Joi)
-- Avoid `eval`, avoid dynamic `child_process.exec` with user input
-- Prefer parameterized DB clients
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per window
+  message: 'Too many requests'
+})
 
+// Apply to routes
+app.use('/api/', limiter)
+```
+
+#### Expensive Operations
+```typescript
+// Aggressive rate limiting for searches
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // 10 requests per minute
+  message: 'Too many search requests'
+})
+
+app.use('/api/search', searchLimiter)
+```
+
+#### Verification Steps
+- [ ] Rate limiting on all API endpoints
+- [ ] Stricter limits on expensive operations
+- [ ] IP-based rate limiting
+- [ ] User-based rate limiting (authenticated)
+
+### 8. Sensitive Data Exposure
+
+#### Logging
+```typescript
+// ❌ WRONG: Logging sensitive data
+console.log('User login:', { email, password })
+console.log('Payment:', { cardNumber, cvv })
+
+// ✅ CORRECT: Redact sensitive data
+console.log('User login:', { email, userId })
+console.log('Payment:', { last4: card.last4, userId })
+```
+
+#### Error Messages
+```typescript
+// ❌ WRONG: Exposing internal details
+catch (error) {
+  return NextResponse.json(
+    { error: error.message, stack: error.stack },
+    { status: 500 }
+  )
+}
+
+// ✅ CORRECT: Generic error messages
+catch (error) {
+  console.error('Internal error:', error)
+  return NextResponse.json(
+    { error: 'An error occurred. Please try again.' },
+    { status: 500 }
+  )
+}
+```
+
+#### Verification Steps
+- [ ] No passwords, tokens, or secrets in logs
+- [ ] Error messages generic for users
+- [ ] Detailed errors only in server logs
+- [ ] No stack traces exposed to users
+
+### 9. Blockchain Security (Solana)
+
+#### Wallet Verification
+```typescript
+import { verify } from '@solana/web3.js'
+
+async function verifyWalletOwnership(
+  publicKey: string,
+  signature: string,
+  message: string
+) {
+  try {
+    const isValid = verify(
+      Buffer.from(message),
+      Buffer.from(signature, 'base64'),
+      Buffer.from(publicKey, 'base64')
+    )
+    return isValid
+  } catch (error) {
+    return false
+  }
+}
+```
+
+#### Transaction Verification
+```typescript
+async function verifyTransaction(transaction: Transaction) {
+  // Verify recipient
+  if (transaction.to !== expectedRecipient) {
+    throw new Error('Invalid recipient')
+  }
+
+  // Verify amount
+  if (transaction.amount > maxAmount) {
+    throw new Error('Amount exceeds limit')
+  }
+
+  // Verify user has sufficient balance
+  const balance = await getBalance(transaction.from)
+  if (balance < transaction.amount) {
+    throw new Error('Insufficient balance')
+  }
+
+  return true
+}
+```
+
+#### Verification Steps
+- [ ] Wallet signatures verified
+- [ ] Transaction details validated
+- [ ] Balance checks before transactions
+- [ ] No blind transaction signing
+
+### 10. Dependency Security
+
+#### Regular Updates
+```bash
+# Check for vulnerabilities
+npm audit
+
+# Fix automatically fixable issues
+npm audit fix
+
+# Update dependencies
+npm update
+
+# Check for outdated packages
+npm outdated
+```
+
+#### Lock Files
+```bash
+# ALWAYS commit lock files
+git add package-lock.json
+
+# Use in CI/CD for reproducible builds
+npm ci  # Instead of npm install
+```
+
+#### Verification Steps
+- [ ] Dependencies up to date
+- [ ] No known vulnerabilities (npm audit clean)
+- [ ] Lock files committed
+- [ ] Dependabot enabled on GitHub
+- [ ] Regular security updates
+
+## Security Testing
+
+### Automated Security Tests
+```typescript
+// Test authentication
+test('requires authentication', async () => {
+  const response = await fetch('/api/protected')
+  expect(response.status).toBe(401)
+})
+
+// Test authorization
+test('requires admin role', async () => {
+  const response = await fetch('/api/admin', {
+    headers: { Authorization: `Bearer ${userToken}` }
+  })
+  expect(response.status).toBe(403)
+})
+
+// Test input validation
+test('rejects invalid input', async () => {
+  const response = await fetch('/api/users', {
+    method: 'POST',
+    body: JSON.stringify({ email: 'not-an-email' })
+  })
+  expect(response.status).toBe(400)
+})
+
+// Test rate limiting
+test('enforces rate limits', async () => {
+  const requests = Array(101).fill(null).map(() =>
+    fetch('/api/endpoint')
+  )
+
+  const responses = await Promise.all(requests)
+  const tooManyRequests = responses.filter(r => r.status === 429)
+
+  expect(tooManyRequests.length).toBeGreaterThan(0)
+})
+```
+
+## Pre-Deployment Security Checklist
+
+Before ANY production deployment:
+
+- [ ] **Secrets**: No hardcoded secrets, all in env vars
+- [ ] **Input Validation**: All user inputs validated
+- [ ] **SQL Injection**: All queries parameterized
+- [ ] **XSS**: User content sanitized
+- [ ] **CSRF**: Protection enabled
+- [ ] **Authentication**: Proper token handling
+- [ ] **Authorization**: Role checks in place
+- [ ] **Rate Limiting**: Enabled on all endpoints
+- [ ] **HTTPS**: Enforced in production
+- [ ] **Security Headers**: CSP, X-Frame-Options configured
+- [ ] **Error Handling**: No sensitive data in errors
+- [ ] **Logging**: No sensitive data logged
+- [ ] **Dependencies**: Up to date, no vulnerabilities
+- [ ] **Row Level Security**: Enabled in Supabase
+- [ ] **CORS**: Properly configured
+- [ ] **File Uploads**: Validated (size, type)
+- [ ] **Wallet Signatures**: Verified (if blockchain)
+
+## Resources
+
+- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
+- [Next.js Security](https://nextjs.org/docs/security)
+- [Supabase Security](https://supabase.com/docs/guides/auth)
+- [Web Security Academy](https://portswigger.net/web-security)
+
+---
+
+**Remember**: Security is not optional. One vulnerability can compromise the entire platform. When in doubt, err on the side of caution.
