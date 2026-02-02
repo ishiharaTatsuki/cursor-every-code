@@ -1,15 +1,10 @@
 #!/usr/bin/env node
 "use strict";
 
-/**
- * PostToolUse (Edit): TypeScript check after editing .ts/.tsx files.
- *
- * Best-effort: finds nearest tsconfig.json and runs `npx tsc --noEmit --pretty false`.
- */
-
 const fs = require("fs");
 const path = require("path");
-const { spawnSync } = require("child_process");
+const { execFileSync } = require("child_process");
+const { getPackageManager } = require("../lib/package-manager");
 
 function readStdinJson() {
   try {
@@ -29,44 +24,102 @@ function fileExists(p) {
   }
 }
 
-const input = readStdinJson();
-const filePath = (input && input.tool_input && input.tool_input.file_path) ? String(input.tool_input.file_path) : "";
-
-if (!filePath || !/\.(ts|tsx)$/i.test(filePath)) process.exit(0);
-
-const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-const abs = path.isAbsolute(filePath) ? filePath : path.resolve(projectDir, filePath);
-if (!fileExists(abs)) process.exit(0);
-
-// Find nearest tsconfig.json
-let dir = path.dirname(abs);
-while (dir && dir !== path.dirname(dir)) {
-  if (fileExists(path.join(dir, "tsconfig.json"))) break;
-  dir = path.dirname(dir);
+function resolveLocalBin(projectDir, name) {
+  const base = path.join(projectDir, "node_modules", ".bin");
+  const unix = path.join(base, name);
+  const win = path.join(base, `${name}.cmd`);
+  if (fileExists(unix)) return unix;
+  if (fileExists(win)) return win;
+  return "";
 }
 
-if (!dir || !fileExists(path.join(dir, "tsconfig.json"))) process.exit(0);
-
-const relFromTscDir = path.relative(dir, abs);
-const base = path.basename(abs);
-
-const r = spawnSync("npx", ["tsc", "--noEmit", "--pretty", "false"], {
-  cwd: dir,
-  encoding: "utf8",
-  stdio: ["ignore", "pipe", "pipe"],
-});
-
-const combined = `${r.stdout || ""}\n${r.stderr || ""}`.trim();
-if (!combined) process.exit(0);
-
-// Print only lines likely relevant to the edited file.
-const lines = combined
-  .split("\n")
-  .filter((l) => l.includes(relFromTscDir) || l.includes(base))
-  .slice(0, 10);
-
-if (lines.length) {
-  console.error(lines.join("\n"));
+function findUp(dir, filename) {
+  let cur = dir;
+  while (true) {
+    const candidate = path.join(cur, filename);
+    if (fileExists(candidate)) return candidate;
+    const parent = path.dirname(cur);
+    if (parent === cur) return "";
+    cur = parent;
+  }
 }
 
-process.exit(0);
+function main() {
+  const input = readStdinJson();
+  const p = String(input?.tool_input?.file_path || "");
+  if (!p || !/\.(ts|tsx)$/.test(p)) process.exit(0);
+
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const abs = path.isAbsolute(p) ? p : path.join(projectDir, p);
+  if (!fileExists(abs)) process.exit(0);
+
+  const startDir = path.dirname(abs);
+  const tsconfig = findUp(startDir, "tsconfig.json");
+  if (!tsconfig) process.exit(0);
+
+  const cwd = path.dirname(tsconfig);
+
+  // Prefer local tsc from node_modules to avoid downloads.
+  const localTsc = resolveLocalBin(projectDir, "tsc");
+
+  let stdout = "";
+  let stderr = "";
+  try {
+    if (localTsc) {
+      stdout = execFileSync(localTsc, ["--noEmit", "--pretty", "false"], {
+        cwd,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 60000,
+      });
+    } else {
+      const pm = getPackageManager({ projectDir }).name;
+      if (pm === "pnpm") {
+        stdout = execFileSync("pnpm", ["exec", "tsc", "--noEmit", "--pretty", "false"], {
+          cwd,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 60000,
+        });
+      } else if (pm === "yarn") {
+        stdout = execFileSync("yarn", ["tsc", "--noEmit", "--pretty", "false"], {
+          cwd,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 60000,
+        });
+      } else {
+        // npm default: avoid auto-install
+        stdout = execFileSync("npx", ["--no-install", "tsc", "--noEmit", "--pretty", "false"], {
+          cwd,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 60000,
+        });
+      }
+    }
+  } catch (e) {
+    stdout = String(e.stdout || "");
+    stderr = String(e.stderr || "");
+  }
+
+  const combined = (stdout + "\n" + stderr).trim();
+  if (!combined) process.exit(0);
+
+  // Try to surface relevant lines.
+  const rel = path.relative(cwd, abs).replace(/\\/g, "/");
+  const base = path.basename(abs);
+
+  const lines = combined
+    .split("\n")
+    .filter((l) => l.includes(rel) || l.includes(base) || l.includes(abs))
+    .slice(0, 10);
+
+  if (lines.length) {
+    console.error(lines.join("\n"));
+  }
+
+  process.exit(0);
+}
+
+main();

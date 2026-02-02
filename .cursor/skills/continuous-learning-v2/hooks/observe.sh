@@ -4,7 +4,7 @@
 # Captures tool use events for pattern analysis.
 # Claude Code passes hook data via stdin as JSON.
 #
-# Hook config (in ./.claude/settings.json):
+# Hook config (in ./.cursor/settings.json):
 #
 # If installed as a plugin, use ${CLAUDE_PLUGIN_ROOT}:
 # {
@@ -20,23 +20,23 @@
 #   }
 # }
 #
-# If installed manually to ./.claude/skills:
+# If installed manually to ./.cursor/skills:
 # {
 #   "hooks": {
 #     "PreToolUse": [{
 #       "matcher": "*",
-#       "hooks": [{ "type": "command", "command": "./.claude/skills/continuous-learning-v2/hooks/observe.sh pre" }]
+#       "hooks": [{ "type": "command", "command": "./.cursor/skills/continuous-learning-v2/hooks/observe.sh pre" }]
 #     }],
 #     "PostToolUse": [{
 #       "matcher": "*",
-#       "hooks": [{ "type": "command", "command": "./.claude/skills/continuous-learning-v2/hooks/observe.sh post" }]
+#       "hooks": [{ "type": "command", "command": "./.cursor/skills/continuous-learning-v2/hooks/observe.sh post" }]
 #     }]
 #   }
 # }
 
 set -e
 
-CONFIG_DIR="./.claude/homunculus"
+CONFIG_DIR="./.cursor/homunculus"
 OBSERVATIONS_FILE="${CONFIG_DIR}/observations.jsonl"
 MAX_FILE_SIZE_MB=10
 
@@ -49,7 +49,7 @@ if [ -f "$CONFIG_DIR/disabled" ]; then
 fi
 
 # Read JSON from stdin (Claude Code hook format)
-INPUT_JSON=$(cat)
+INPUT_JSON="$(cat)"
 
 # Exit if no input
 if [ -z "$INPUT_JSON" ]; then
@@ -57,12 +57,12 @@ if [ -z "$INPUT_JSON" ]; then
 fi
 
 # Parse using python (more reliable than jq for complex JSON)
-PARSED=$(python3 << EOF
+PARSED="$(printf '%s' "$INPUT_JSON" | python3 <<'PY'
 import json
 import sys
 
 try:
-    data = json.loads('''$INPUT_JSON''')
+    data = json.load(sys.stdin)
 
     # Extract fields - Claude Code hook format
     hook_type = data.get('hook_type', 'unknown')  # PreToolUse or PostToolUse
@@ -95,22 +95,24 @@ try:
     }))
 except Exception as e:
     print(json.dumps({'parsed': False, 'error': str(e)}))
-EOF
-)
+PY
+)"
 
 # Check if parsing succeeded
-PARSED_OK=$(echo "$PARSED" | python3 -c "import json,sys; print(json.load(sys.stdin).get('parsed', False))")
+PARSED_OK="$(printf '%s' "$PARSED" | python3 -c "import json,sys; print(json.load(sys.stdin).get('parsed', False))")"
 
 if [ "$PARSED_OK" != "True" ]; then
   # Fallback: log raw input for debugging
-  timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  echo "{\"timestamp\":\"$timestamp\",\"event\":\"parse_error\",\"raw\":$(echo "$INPUT_JSON" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()[:1000]))')}" >> "$OBSERVATIONS_FILE"
+  timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  raw_snippet="$(printf '%s' "$INPUT_JSON" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()[:1000]))')"
+  printf '{"timestamp":"%s","event":"parse_error","raw":%s}
+' "$timestamp" "$raw_snippet" >> "$OBSERVATIONS_FILE"
   exit 0
 fi
 
 # Archive if file too large
 if [ -f "$OBSERVATIONS_FILE" ]; then
-  file_size_mb=$(du -m "$OBSERVATIONS_FILE" 2>/dev/null | cut -f1)
+  file_size_mb="$(du -m "$OBSERVATIONS_FILE" 2>/dev/null | cut -f1)"
   if [ "${file_size_mb:-0}" -ge "$MAX_FILE_SIZE_MB" ]; then
     archive_dir="${CONFIG_DIR}/observations.archive"
     mkdir -p "$archive_dir"
@@ -119,32 +121,34 @@ if [ -f "$OBSERVATIONS_FILE" ]; then
 fi
 
 # Build and write observation
-timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-python3 << EOF
+OBSERVATIONS_FILE="$OBSERVATIONS_FILE" OBS_TIMESTAMP="$timestamp" printf '%s' "$PARSED" | python3 <<'PY'
 import json
+import os
+import sys
 
-parsed = json.loads('''$PARSED''')
+parsed = json.load(sys.stdin)
 observation = {
-    'timestamp': '$timestamp',
+    'timestamp': os.environ.get('OBS_TIMESTAMP', ''),
     'event': parsed['event'],
     'tool': parsed['tool'],
-    'session': parsed['session']
+    'session': parsed['session'],
 }
 
-if parsed['input']:
+if parsed.get('input'):
     observation['input'] = parsed['input']
-if parsed['output']:
+if parsed.get('output'):
     observation['output'] = parsed['output']
 
-with open('$OBSERVATIONS_FILE', 'a') as f:
+with open(os.environ['OBSERVATIONS_FILE'], 'a', encoding='utf-8') as f:
     f.write(json.dumps(observation) + '\n')
-EOF
+PY
 
 # Signal observer if running
 OBSERVER_PID_FILE="${CONFIG_DIR}/.observer.pid"
 if [ -f "$OBSERVER_PID_FILE" ]; then
-  observer_pid=$(cat "$OBSERVER_PID_FILE")
+  observer_pid="$(cat "$OBSERVER_PID_FILE")"
   if kill -0 "$observer_pid" 2>/dev/null; then
     kill -USR1 "$observer_pid" 2>/dev/null || true
   fi

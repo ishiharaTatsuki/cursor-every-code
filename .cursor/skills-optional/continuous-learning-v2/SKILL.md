@@ -117,7 +117,7 @@ Add to your `./.claude/settings.json`.
 }
 ```
 
-**If installed manually** to `./.claude/skills`:
+**If installed manually** to `./.cursor/skills`:
 
 ```json
 {
@@ -126,14 +126,14 @@ Add to your `./.claude/settings.json`.
       "matcher": "*",
       "hooks": [{
         "type": "command",
-        "command": "./.claude/skills/continuous-learning-v2/hooks/observe.sh pre"
+        "command": "./.cursor/skills/continuous-learning-v2/hooks/observe.sh pre"
       }]
     }],
     "PostToolUse": [{
       "matcher": "*",
       "hooks": [{
         "type": "command",
-        "command": "./.claude/skills/continuous-learning-v2/hooks/observe.sh post"
+        "command": "./.cursor/skills/continuous-learning-v2/hooks/observe.sh post"
       }]
     }]
   }
@@ -262,7 +262,7 @@ Hooks fire **100% of the time**, deterministically. This means:
 ## Backward Compatibility
 
 v2 is fully compatible with v1:
-- Existing `./.claude/skills/learned/` skills still work
+- Existing `./.cursor/skills/learned/` skills still work
 - Stop hook still runs (but now also feeds into v2)
 - Gradual migration path: run both in parallel
 

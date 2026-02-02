@@ -15,7 +15,7 @@
 #       "matcher": "Edit|Write",
 #       "hooks": [{
 #         "type": "command",
-#         "command": "./.claude/skills/strategic-compact/suggest-compact.sh"
+#         "command": "./.cursor/skills/strategic-compact/suggest-compact.sh"
 #       }]
 #     }]
 #   }
