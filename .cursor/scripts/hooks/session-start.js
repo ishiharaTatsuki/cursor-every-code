@@ -9,12 +9,15 @@
  */
 
 const {
+  getProjectDir,
   getSessionsDir,
   getLearnedSkillsDir,
   findFiles,
   ensureDir,
   log
 } = require('../lib/utils');
+try { process.chdir(getProjectDir()); } catch (_) { }
+
 const { getPackageManager, getSelectionPrompt } = require('../lib/package-manager');
 
 async function main() {

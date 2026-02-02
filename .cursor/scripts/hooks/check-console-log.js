@@ -8,6 +8,8 @@
  * - This hook is WARN-only by default (never blocks).
  * - Keep it lightweight; fail-open on errors.
  */
+const { getProjectDir } = require('../lib/utils');
+try { process.chdir(getProjectDir()); } catch (_) { }
 
 const fs = require('fs');
 const path = require('path');

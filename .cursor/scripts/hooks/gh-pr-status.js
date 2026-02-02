@@ -6,6 +6,8 @@
  * Default: detect PR URL in Bash output and print a small hint.
  * Optional: set ECC_GH_PR_STATUS=1 to attempt `gh pr view` (requires gh + auth).
  */
+const { getProjectDir, readStdinJson, log, commandExists } = require('../lib/utils');
+try { process.chdir(getProjectDir()); } catch (_) { }
 
 const { readStdinJson, log, commandExists } = require('../lib/utils');
 const { getToolName, getToolResponseText } = require('../lib/hook-input');
