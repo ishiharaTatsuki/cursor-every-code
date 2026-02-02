@@ -21,17 +21,51 @@ Project Rules / Commands / Skills / Subagents に加え、**Claude Code 互換�
 
 ---
 
-
-
 ## 最小運用ルール
 
 * 現在のmodelはinheritで記述。IDEなどで検索・置換でmodelを変更する。
-* 重要な変更は `changelog.md` に記録（推奨）
+* 重要な変更は `CHANGELOG.md` に記録（推奨）
 * clone後はchangelogフォルダを削除
 * 公開/共有する場合は `LICENSE` を必ず明示
 * 外部コントリビューションを受ける場合は `CONTRIBUTING.md` / `CODE_OF_CONDUCT.md` / `SECURITY.md` を用意（推奨）
 
 ---
+
+
+
+# Python プロジェクトで「使いこなす」ための実践セット
+
+ここからが運用の肝です。**“入れただけ”**だと、Commands/Skills が TS 寄りの例を含むので、Python現場でズレます。ズレを吸収する具体策を出します。
+
+## 1) まず toolchain を確定させる（uv/poetry/pdm/pipenv/pip）
+
+このテンプレは Python ランナーを「リポジトリの強いシグナル」で推定します（例：`uv.lock` があれば uv、`poetry.lock` があれば poetry、など）。
+
+**おすすめ手順：**
+
+1. プロジェクトの採用ツールを決める（uv or poetry が多い）
+2. lockfile を必ず置く（推定精度が上がる）
+3. Cursor を起動する前に、その環境で `ruff/pytest/mypy` が引けるようにする
+   * venv 運用なら「その venv が有効なシェルから Cursor を起動」するのが安全です
+
+---
+
+
+
+## 2) “推奨コマンド”を自動生成してチーム標準にする
+
+このテンプレには **tooling 検出スクリプト**があり、Python/Node の推奨コマンドを出せます。
+
+<pre class="overflow-visible! px-0!" data-start="6880" data-end="6942"><div class="contain-inline-size rounded-2xl corner-superellipse/1.1 relative bg-token-sidebar-surface-primary"><div class="sticky top-[calc(var(--sticky-padding-top)+9*var(--spacing))]"><div class="absolute end-0 bottom-0 flex h-9 items-center pe-2"><div class="bg-token-bg-elevated-secondary text-token-text-secondary flex items-center gap-4 rounded-sm px-2 font-sans text-xs"></div></div></div><div class="overflow-y-auto p-4" dir="ltr"><code class="whitespace-pre! language-bash"><span><span>node .cursor/scripts/recommend-commands.js --write
+</span></span></code></div></div></pre>
+
+* `.cursor/.hook_state/tooling.json` にスナップショット保存
+* `/tooling` コマンドも用意されています（このスクリプトを走らせる運用）。
+
+> ここを最初に固めると、/verify やレビュー時の「何のコマンド回す？」がブレなくなります。
+>
+
+
 
 ## クイックスタート
 
