@@ -5,3 +5,6 @@
 .claude/homunculus/
 
 .venv
+
+__pycache__/
+*.pyc
