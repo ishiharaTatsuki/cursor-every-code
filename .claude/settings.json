@@ -1,5 +1,4 @@
 {
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,185 +6,114 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/pretool-block-dev-server.js\""
-          }
-        ],
-        "description": "Block dev servers outside tmux (ensures log access/persistence)"
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/bash-danger-guard.js\""
+          },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/pretool-tmux-reminder.js\""
-          }
-        ],
-        "description": "Reminder to use tmux for long-running commands"
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/tmux-reminder.js\""
+          },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/pretool-git-push-reminder.js\""
-          }
-        ],
-        "description": "Reminder before git push to review changes"
-      },
-      {
-        "matcher": "Write",
-        "hooks": [
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/dev-server-guard.js\""
+          },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/pretool-block-doc-write.js\""
-          }
-        ],
-        "description": "Block creation of ad-hoc .md/.txt files (keeps docs consolidated)"
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/git-push-reminder.js\""
+          },
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/suggest-compact.js\""
           }
-        ],
-        "description": "Suggest manual compaction at logical intervals"
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/doc-file-guard.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/suggest-compact.js\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/python-after-edit.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/js-after-edit.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/gh-pr-status.js\"",
+            "timeout": 120
+          }
+        ]
       }
     ],
     "PreCompact": [
       {
-        "matcher": "*",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/pre-compact.js\""
           }
-        ],
-        "description": "Save state before context compaction"
+        ]
       }
     ],
     "SessionStart": [
       {
-        "matcher": "*",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/session-start.js\""
           }
-        ],
-        "description": "Load previous context and detect package manager on new session"
+        ]
       }
     ],
-    "PostToolUse": [
+    "SessionEnd": [
       {
-        "matcher": "Bash",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/posttool-pr-create-log.js\""
-          }
-        ],
-        "description": "Log PR URL and provide a review command after gh pr create"
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/session-end.js\""
+          },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/posttool-build-analysis.js\"",
-            "timeout": 30
-          }
-        ],
-        "description": "Lightweight message after build commands"
-      },
-      {
-        "matcher": "Edit",
-        "hooks": [
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/evaluate-session.js\""
+          },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/posttool-prettier.js\"",
-            "timeout": 35
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/python-stop-checks.js\""
           }
-        ],
-        "description": "Auto-format JS/TS files with Prettier after edits"
-      },
-      {
-        "matcher": "Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/posttool-tsc.js\"",
-            "timeout": 70
-          }
-        ],
-        "description": "TypeScript check after editing .ts/.tsx files"
-      },
-      {
-        "matcher": "Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/posttool-console-log-warn.js\""
-          }
-        ],
-        "description": "Warn about console.log statements after edits"
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/python-after-edit.js\"",
-            "timeout": 45
-          }
-        ],
-        "description": "Python: track changed files + ruff format/check after edits"
+        ]
       }
     ],
     "Stop": [
       {
-        "matcher": "*",
         "hooks": [
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/check-console-log.js\""
           }
-        ],
-        "description": "Check for console.log in modified files after each response"
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/session-end.js\""
-          }
-        ],
-        "description": "Persist session state on end"
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/evaluate-session.js\""
-          }
-        ],
-        "description": "Evaluate session for extractable patterns"
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/python-stop-checks.js\"",
-            "timeout": 240
-          }
-        ],
-        "description": "Python: if .py changed this turn, run ruff/mypy/pytest then clear state"
+        ]
       }
     ]
   }
