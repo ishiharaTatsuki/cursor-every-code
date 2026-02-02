@@ -26,7 +26,7 @@ Project Rules / Commands / Skills / Subagents に加え、**Claude Code 互換�
 ## 最小運用ルール
 
 * 現在のmodelはinheritで記述。IDEなどで検索・置換でmodelを変更する。
-* 重要な変更は `CHANGELOG.md` に記録（推奨）
+* 重要な変更は `changelog.md` に記録（推奨）
 * clone後はchangelogフォルダを削除
 * 公開/共有する場合は `LICENSE` を必ず明示
 * 外部コントリビューションを受ける場合は `CONTRIBUTING.md` / `CODE_OF_CONDUCT.md` / `SECURITY.md` を用意（推奨）
