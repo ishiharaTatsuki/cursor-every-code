@@ -19,6 +19,24 @@
 ## Cursor 連携
 
 - **プロジェクトルール**は `.cursor/rules/` に Markdown ファイルとして配置し、バージョン管理します。
+## スキルパック（Skill Packs）
+
+デフォルトは **full**（全スキル有効）です。
+
+- 有効: `./.cursor/skills/`
+- 無効（退避）: `./.cursor/skills-optional/`
+
+切り替え:
+
+```bash
+# 全スキル有効
+node .cursor/scripts/apply-skill-pack.js --pack full
+
+# 最小セット（ノイズ低減）
+node .cursor/scripts/apply-skill-pack.js --pack python-node-minimal
+```
+
+詳細は `./.cursor/skill-packs/README.md` を参照してください。
 
 ## 参考 / 引用
 
