@@ -10,7 +10,7 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/pretool-block-dev-server.js\""
           }
         ],
-        "description": "Block dev servers outside tmux - ensures you can access logs"
+        "description": "Block dev servers outside tmux (ensures log access/persistence)"
       },
       {
         "matcher": "Bash",
@@ -40,7 +40,7 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/pretool-block-doc-write.js\""
           }
         ],
-        "description": "Block creation of random .md/.txt files - keeps docs consolidated"
+        "description": "Block creation of ad-hoc .md/.txt files (keeps docs consolidated)"
       },
       {
         "matcher": "Edit|Write",
@@ -86,7 +86,7 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/posttool-pr-create-log.js\""
           }
         ],
-        "description": "Log PR URL and provide review command after PR creation"
+        "description": "Log PR URL and provide a review command after gh pr create"
       },
       {
         "matcher": "Bash",
@@ -94,18 +94,18 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/posttool-build-analysis.js\"",
-            "async": true,
             "timeout": 30
           }
         ],
-        "description": "Example: async hook for build analysis (runs in background without blocking)"
+        "description": "Lightweight message after build commands"
       },
       {
         "matcher": "Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/posttool-prettier.js\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/posttool-prettier.js\"",
+            "timeout": 35
           }
         ],
         "description": "Auto-format JS/TS files with Prettier after edits"
@@ -115,7 +115,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/posttool-tsc.js\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/posttool-tsc.js\"",
+            "timeout": 70
           }
         ],
         "description": "TypeScript check after editing .ts/.tsx files"
