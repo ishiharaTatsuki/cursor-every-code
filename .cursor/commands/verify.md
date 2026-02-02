@@ -1,44 +1,30 @@
-# Verification
+# Verification Command
 
-Run comprehensive verification on the current codebase state (Python-first, with optional Node.js checks).
-
-## Step 0: Detect tooling
-
-First, print the repo-specific commands (uv/poetry/pdm/pipenv, npm/pnpm, etc.):
-
-```bash
-node .cursor/scripts/recommend-commands.js
-```
-
-Then use those commands for the steps below.
+Run comprehensive verification on current codebase state.
 
 ## Instructions
 
-Execute verification in this order:
+Execute verification in this exact order:
 
 1. **Build Check**
-   - Python: run compile/import sanity
-   - Node (if present): run build (if configured)
+   - Run the build command for this project
    - If it fails, report errors and STOP
 
 2. **Type Check**
-   - Python: mypy (or pyright if your repo uses it)
-   - TypeScript (if present): tsc/typecheck script
+   - Run TypeScript/type checker
    - Report all errors with file:line
 
 3. **Lint Check**
-   - Python: ruff check (and format if needed)
-   - Node: lint script if configured
+   - Run linter
    - Report warnings and errors
 
 4. **Test Suite**
-   - Run all tests (pytest / node test runner)
+   - Run all tests
    - Report pass/fail count
    - Report coverage percentage
 
-5. **Debug Print Audit**
-   - Python: search for `print(` in tracked source (as a proxy for debug prints)
-   - JS/TS: search for `console.log`
+5. **Console.log Audit**
+   - Search for console.log in source files
    - Report locations
 
 6. **Git Status**

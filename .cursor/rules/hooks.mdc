@@ -7,65 +7,47 @@ globs:
 
 # Hooks System
 
-This repo supports **third-party hooks** via `./.claude/settings.json` (Claude Code–compatible).
-In Cursor, enable third-party hooks so this file is loaded.
+## Hook Types
 
-## Hook Events
+- **PreToolUse**: Before tool execution (validation, parameter modification)
+- **PostToolUse**: After tool execution (auto-format, checks)
+- **Stop**: When session ends (final verification)
 
-- **SessionStart**: Session begins or resumes.
-- **PreToolUse**: Before a tool call executes. Can block the tool call.
-- **PostToolUse**: After a tool call succeeds.
-- **Stop**: After the assistant finishes a response (can happen many times per session).
-- **PreCompact**: Before context compaction.
-- **SessionEnd**: When the session terminates.
-
-## Where the configuration lives
-
-- Hook config: `./.claude/settings.json`
-- Hook implementations: `./.cursor/scripts/hooks/*.js`
-
-## Shipped hooks
+## Current Hooks (in ./.claude/settings.json)
 
 ### PreToolUse
-- **Block dev servers outside tmux**: blocks `npm run dev` / `pnpm dev` / `yarn dev` / `bun run dev` unless inside tmux.
-  - Script: `pretool-block-dev-server.js`
-- **tmux reminder**: best-effort reminder for long-running commands (does not block).
-  - Script: `pretool-tmux-reminder.js`
-- **git push reminder**: best-effort reminder (does not block).
-  - Script: `pretool-git-push-reminder.js`
-- **Doc file creation blocker**: blocks creating new random `*.md` / `*.txt` files (allows README/CLAUDE/AGENTS/CONTRIBUTING and overwriting existing files).
-  - Script: `pretool-block-doc-write.js`
-- **Suggest manual compaction**: nudges compaction after edit/write churn.
-  - Script: `suggest-compact.js`
+- **tmux reminder**: Suggests tmux for long-running commands (npm, pnpm, yarn, cargo, etc.)
+- **git push review**: Opens Zed for review before push
+- **doc blocker**: Blocks creation of unnecessary .md/.txt files
 
 ### PostToolUse
-- **PR helper**: extracts PR URL from `gh pr create` output and prints a follow-up command.
-  - Script: `posttool-pr-create-log.js`
-- **Build analysis (example)**: demo async hook pattern.
-  - Script: `posttool-build-analysis.js`
-- **JS/TS format (best-effort)**: runs Prettier on edited JS/TS files.
-  - Script: `posttool-prettier.js`
-- **TypeScript check (best-effort)**: runs `tsc --noEmit` when editing TS/TSX.
-  - Script: `posttool-tsc.js`
-- **console.log warning**: warns when edited JS/TS contains `console.log`.
-  - Script: `posttool-console-log-warn.js`
-- **Python after-edit**: tracks changed `.py` files and runs `ruff format` + `ruff check` (optionally fix).
-  - Script: `python-after-edit.js`
+- **PR creation**: Logs PR URL and GitHub Actions status
+- **Prettier**: Auto-formats JS/TS files after edit
+- **TypeScript check**: Runs tsc after editing .ts/.tsx files
+- **console.log warning**: Warns about console.log in edited files
 
 ### Stop
-- **console.log audit**: checks modified files for `console.log` after each assistant response.
-  - Script: `check-console-log.js`
+- **console.log audit**: Checks all modified files for console.log before session ends
 
-### SessionEnd
-- **Persist session state**: saves per-session state.
-  - Script: `session-end.js`
-- **Evaluate session**: tries to extract reusable patterns.
-  - Script: `evaluate-session.js`
-- **Python stop checks**: if Python files changed, runs `ruff/mypy/pytest` then clears state.
-  - Script: `python-stop-checks.js`
+## Auto-Accept Permissions
 
-## Safety notes
+Use with caution:
+- Enable for trusted, well-defined plans
+- Disable for exploratory work
+- Never use dangerously-skip-permissions flag
+- Configure `allowedTools` in `./.claude.json` instead
 
-- Hooks should act as **guard rails**, not as a build system.
-- Prefer “reminders” over heavy automatic checks for slow/flaky commands.
-- If you add blockers, confirm they truly block in your hook runner.
+## TodoWrite Best Practices
+
+Use TodoWrite tool to:
+- Track progress on multi-step tasks
+- Verify understanding of instructions
+- Enable real-time steering
+- Show granular implementation steps
+
+Todo list reveals:
+- Out of order steps
+- Missing items
+- Extra unnecessary items
+- Wrong granularity
+- Misinterpreted requirements

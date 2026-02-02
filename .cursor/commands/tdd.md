@@ -320,7 +320,7 @@ Never skip the RED phase. Never write code before tests.
 ## Related Agents
 
 This command invokes the `tdd-guide` agent located at:
-`./.cursor/agents/tdd-guide.md`
+`./.claude/agents/tdd-guide.md`
 
 And can reference the `tdd-workflow` skill at:
 `./.claude/skills/tdd-workflow/`

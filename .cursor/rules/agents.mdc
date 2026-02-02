@@ -9,7 +9,7 @@ globs:
 
 ## Available Agents
 
-Located in `./.cursor/agents/`:
+Located in `./.claude/agents/`:
 
 | Agent | Purpose | When to Use |
 |-------|---------|-------------|

@@ -1,8 +1,8 @@
 ---
-description: testing (js/ts)
-alwaysApply: false
+description: testing
+alwaysApply: true
 globs:
-  - "**/*.{js,jsx,ts,tsx}"
+  - "**/*"
 ---
 
 # Testing Requirements

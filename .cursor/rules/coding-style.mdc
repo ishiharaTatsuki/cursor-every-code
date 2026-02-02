@@ -1,8 +1,8 @@
 ---
-description: coding style (js/ts)
-alwaysApply: false
+description: coding style
+alwaysApply: true
 globs:
-  - "**/*.{js,jsx,ts,tsx}"
+  - "**/*"
 ---
 
 # Coding Style
