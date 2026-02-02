@@ -101,8 +101,12 @@ def _append_observation_dedup(observation: dict) -> None:
             # If the last line isn't valid JSON, just append.
             pass
 
-    with OBSERVATIONS_FILE.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(observation, ensure_ascii=False) + "\n")
+    try:
+        with OBSERVATIONS_FILE.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(observation, ensure_ascii=False) + "\n")
+    except Exception:
+        # Hooks should be non-fatal.
+        return
 
 
 # ─────────────────────────────────────────────
@@ -164,7 +168,7 @@ def load_all_instincts() -> list[dict]:
             continue
         for file in directory.glob("*.yaml"):
             try:
-                content = file.read_text()
+                content = file.read_text(encoding="utf-8", errors="replace")
                 parsed = parse_instinct_file(content)
                 for inst in parsed:
                     inst['_source_file'] = str(file)
@@ -174,34 +178,6 @@ def load_all_instincts() -> list[dict]:
                 print(f"Warning: Failed to parse {file}: {e}", file=sys.stderr)
 
     return instincts
-
-
-# ─────────────────────────────────────────────
-# Observe Command
-# ─────────────────────────────────────────────
-
-def _canonical_json(obj: dict) -> str:
-    """Canonical JSON representation used for lightweight dedupe."""
-    return json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-
-
-def _read_last_nonempty_line(p: Path, max_bytes: int = 16_384) -> Optional[str]:
-    if not p.exists():
-        return None
-
-    try:
-        with p.open("rb") as f:
-            try:
-                f.seek(-max_bytes, os.SEEK_END)
-            except OSError:
-                # File is smaller than max_bytes
-                f.seek(0)
-            chunk = f.read().decode("utf-8", errors="ignore")
-    except Exception:
-        return None
-
-    lines = [ln for ln in chunk.splitlines() if ln.strip()]
-    return lines[-1] if lines else None
 
 
 def cmd_observe(args):
@@ -246,23 +222,8 @@ def cmd_observe(args):
     if "timestamp" not in obs or not obs.get("timestamp"):
         obs["timestamp"] = datetime.utcnow().isoformat() + "Z"
 
-    # Make sure directory exists
-    OBSERVATIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-    # Dedupe check: compare canonicalized last line with current observation.
-    new_canon = _canonical_json(obs)
-    last = _read_last_nonempty_line(OBSERVATIONS_FILE)
-    if last:
-        try:
-            last_obj = json.loads(last)
-            if isinstance(last_obj, dict) and _canonical_json(last_obj) == new_canon:
-                return 0
-        except Exception:
-            pass
-
     try:
-        with OBSERVATIONS_FILE.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(obs, ensure_ascii=False) + "\n")
+        _append_observation_dedup(obs)
     except Exception:
         return 0
 
@@ -331,7 +292,8 @@ def cmd_status(args):
 
     # Observations stats
     if OBSERVATIONS_FILE.exists():
-        obs_count = sum(1 for _ in open(OBSERVATIONS_FILE))
+        with OBSERVATIONS_FILE.open("r", encoding="utf-8", errors="ignore") as f:
+            obs_count = sum(1 for _ in f)
         print(f"─────────────────────────────────────────────────────────")
         print(f"  Observations: {obs_count} events logged")
         print(f"  File: {OBSERVATIONS_FILE}")
@@ -352,7 +314,7 @@ def cmd_import(args):
         print(f"Fetching from URL: {source}")
         try:
             with urllib.request.urlopen(source) as response:
-                content = response.read().decode('utf-8')
+                content = response.read().decode('utf-8', errors='replace')
         except Exception as e:
             print(f"Error fetching URL: {e}", file=sys.stderr)
             return 1
@@ -361,7 +323,7 @@ def cmd_import(args):
         if not path.exists():
             print(f"File not found: {path}", file=sys.stderr)
             return 1
-        content = path.read_text()
+        content = path.read_text(encoding="utf-8", errors="replace")
 
     # Parse instincts
     new_instincts = parse_instinct_file(content)
@@ -452,7 +414,7 @@ def cmd_import(args):
         output_content += "---\n\n"
         output_content += inst.get('content', '') + "\n\n"
 
-    output_file.write_text(output_content)
+    output_file.write_text(output_content, encoding="utf-8")
 
     print(f"\n✅ Import complete!")
     print(f"   Added: {len(to_add)}")
@@ -503,7 +465,7 @@ def cmd_export(args):
 
     # Write to file or stdout
     if args.output:
-        Path(args.output).write_text(output)
+        Path(args.output).write_text(output, encoding="utf-8")
         print(f"Exported {len(instincts)} instincts to {args.output}")
     else:
         print(output)
