@@ -1,8 +1,8 @@
 ---
-description: patterns
-alwaysApply: true
+description: patterns (js/ts)
+alwaysApply: false
 globs:
-  - "**/*"
+  - "**/*.{js,jsx,ts,tsx}"
 ---
 
 # Common Patterns
