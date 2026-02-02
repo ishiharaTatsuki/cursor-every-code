@@ -6,10 +6,14 @@
  * Default: detect PR URL in Bash output and print a small hint.
  * Optional: set ECC_GH_PR_STATUS=1 to attempt `gh pr view` (requires gh + auth).
  */
-const { getProjectDir, readStdinJson, log, commandExists } = require('../lib/utils');
+const {
+  getProjectDir,
+  readStdinJson,
+  log,
+  commandExists
+} = require('../lib/utils');
 try { process.chdir(getProjectDir()); } catch (_) { }
 
-const { readStdinJson, log, commandExists } = require('../lib/utils');
 const { getToolName, getToolResponseText } = require('../lib/hook-input');
 const { spawnSync } = require('child_process');
 
@@ -47,7 +51,7 @@ async function main() {
     return;
   }
 
-  const r = run('gh', ['pr', 'view', prNumber, '--json', 'state,title,url,number,baseRefName,headRefName']);
+  const r = run('gh', ['pr', 'view', url, '--json', 'state,title,url,number,baseRefName,headRefName']);
   if (r.status === 0) {
     log(`[gh] PR status: ${r.stdout.trim()}`);
   } else {
