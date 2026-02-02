@@ -1,61 +1,93 @@
 #!/usr/bin/env node
 
 /**
- * Stop Hook: Check for console.log statements in modified files
- * 
- * This hook runs after each response and checks if any modified
- * JavaScript/TypeScript files contain console.log statements.
- * It provides warnings to help developers remember to remove
- * debug statements before committing.
+ * Stop Hook: Warn on console.log/debugger in modified JS/TS files.
+ *
+ * Notes:
+ * - Stop hooks run when the main agent finishes a response (not session end).
+ * - This hook is WARN-only by default (never blocks).
+ * - Keep it lightweight; fail-open on errors.
  */
 
-const { execFileSync } = require('child_process');
 const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
 
-let data = '';
-
-// Read stdin
-process.stdin.on('data', chunk => {
-  data += chunk;
-});
-
-process.stdin.on('end', () => {
+function run(cmd) {
   try {
-    // Check if we're in a git repository
-    try {
-      execFileSync('git', ['rev-parse', '--git-dir'], { stdio: 'pipe' });
-    } catch {
-      // Not in a git repo, just pass through the data
-      console.log(data);
-      process.exit(0);
+    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function inGitRepo() {
+  return Boolean(run('git rev-parse --git-dir'));
+}
+
+function hasHead() {
+  return Boolean(run('git rev-parse --verify HEAD'));
+}
+
+function uniq(arr) {
+  return Array.from(new Set(arr.filter(Boolean)));
+}
+
+function getChangedFiles() {
+  if (!inGitRepo()) return [];
+
+  const diffBase = hasHead() ? 'HEAD' : '';
+  const unstaged = run(`git diff --name-only ${diffBase}`.trim()).split('\n');
+  const staged = run('git diff --name-only --cached').split('\n');
+  const untracked = run('git ls-files --others --exclude-standard').split('\n');
+
+  return uniq([...unstaged, ...staged, ...untracked]);
+}
+
+function isJsTs(file) {
+  return /\.(ts|tsx|js|jsx)$/.test(file);
+}
+
+function readFileSafe(file) {
+  try {
+    return fs.readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function main() {
+  if (process.env.ECC_DISABLE_CONSOLE_LOG_CHECK === '1') return;
+
+  const files = getChangedFiles().filter(f => isJsTs(f) && fs.existsSync(f));
+  if (files.length === 0) return;
+
+  // Avoid scanning too many files every Stop hook.
+  const limit = Number(process.env.ECC_CONSOLE_LOG_CHECK_LIMIT || '25');
+  const toScan = files.slice(0, Math.max(0, limit));
+
+  let found = 0;
+
+  for (const file of toScan) {
+    const content = readFileSafe(file);
+    if (!content) continue;
+
+    const hasConsole = /\bconsole\.log\s*\(/.test(content);
+    const hasDebugger = /\bdebugger\s*;/.test(content);
+
+    if (hasConsole || hasDebugger) {
+      found += 1;
+      console.error(`[Hook] WARNING: ${hasConsole ? 'console.log' : ''}${hasConsole && hasDebugger ? ' & ' : ''}${hasDebugger ? 'debugger' : ''} found in ${file}`);
     }
-
-    // Get list of modified files
-    const files = execFileSync('git', ['diff', '--name-only', 'HEAD'], {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    })
-      .split('\n')
-      .filter(f => /\.(ts|tsx|js|jsx)$/.test(f) && fs.existsSync(f));
-
-    let hasConsole = false;
-
-    // Check each file for console.log
-    for (const file of files) {
-      const content = fs.readFileSync(file, 'utf8');
-      if (content.includes('console.log')) {
-        console.error(`[Hook] WARNING: console.log found in ${file}`);
-        hasConsole = true;
-      }
-    }
-
-    if (hasConsole) {
-      console.error('[Hook] Remove console.log statements before committing');
-    }
-  } catch (_error) {
-    // Silently ignore errors (git might not be available, etc.)
   }
 
-  // Always output the original data
-  console.log(data);
-});
+  if (found > 0) {
+    console.error('[Hook] Reminder: remove debug statements before committing.');
+  }
+}
+
+try {
+  main();
+} catch {
+  // fail-open
+}

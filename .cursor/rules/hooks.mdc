@@ -5,58 +5,57 @@ globs:
   - "**/*"
 ---
 
-# Hooks System
+# Hooks System (Cursor third-party hooks)
 
-## Hook Types
+This repo uses **Claude Code-style hooks** via `./.claude/settings.json` so it can run in Cursor when "third-party hooks" are enabled.
 
-- **PreToolUse**: Before tool execution (validation, reminders, blocking)
-- **PostToolUse**: After tool execution (auto-format, lightweight checks)
-- **Stop**: After each assistant response (lightweight audits)
-- **SessionEnd**: When the session ends (heavier evaluation/checks)
+## Event semantics (important)
 
-## Current Hooks (in `./.claude/settings.json`)
+- **PreToolUse**: runs *before* a tool executes (good for blocking dangerous commands).
+- **PostToolUse**: runs *after* a tool executes (good for auto-format / lightweight checks).
+- **Stop**: runs when the main agent **finishes a response** (NOT session end).
+- **SessionEnd**: runs when the **session ends**.
+
+## Current hooks (./.claude/settings.json)
 
 ### PreToolUse
-- **dev server block**: Blocks starting common JS dev servers outside tmux
-- **tmux reminder**: Suggests tmux for long-running commands (install/test/build)
-- **git push reminder**: Prompts you to review diff/status before pushing
-- **doc blocker**: Blocks creation of ad-hoc .md/.txt files outside approved locations
+
+For `Bash`:
+
+- **bash-danger-guard.js** (BLOCK): blocks high-confidence destructive commands (rm -rf /, sudo, curl|sh, mkfs, dd, shutdown).
+- **tmux-reminder.js** (WARN): suggests tmux/screen for long-ish commands (throttled).
+- **dev-server-guard.js** (WARN/BLOCK optional): warns on dev servers; can block if `ECC_REQUIRE_TMUX_FOR_DEV_SERVER=1`.
+- **git-push-reminder.js** (WARN/BLOCK optional): reminds before `git push`; can block force pushes with `ECC_BLOCK_FORCE_PUSH=1`.
+- **suggest-compact.js** (WARN): suggests `/compact` after many tool calls (threshold + cooldown).
+
+For `Write|Edit|MultiEdit`:
+
+- **doc-file-guard.js** (OFF by default): warn/block on writing `.md/.txt` (except README/CHANGELOG). Controlled by `ECC_DOC_GUARD=off|warn|block`.
+- **suggest-compact.js** (WARN)
 
 ### PostToolUse
-- **PR creation**: If `gh pr create` ran, logs PR URL and suggests a `gh pr review ...` command
-- **build message**: Lightweight message after common build commands
-- **Prettier**: Auto-formats JS/TS files after edits (prefers local prettier, falls back to `npx --no-install`)
-- **TypeScript check**: Runs `tsc --noEmit` after editing .ts/.tsx (prefers local tsc, falls back to `npx --no-install`)
-- **console.log warning**: Warns if edited JS/TS file contains `console.log`
-- **Python after edit**: Tracks changed .py files and runs `ruff format/check`
 
-### Stop
-- **console.log audit**: Checks modified files for `console.log` after each response
+For `Write|Edit|MultiEdit`:
+
+- **python-after-edit.js** (best-effort): runs `ruff format` and `ruff check` if available.
+- **js-after-edit.js** (best-effort): runs Prettier if available locally (never installs by default), optional `tsc --noEmit`.
+
+For `Bash`:
+
+- **gh-pr-status.js** (optional): detects PR URLs and hints `gh pr view`; actual `gh pr view` is opt-in via `ECC_GH_PR_STATUS=1`.
 
 ### SessionEnd
-- **session persistence**: Saves session state
-- **continuous-learning evaluation**: Suggests extracting reusable patterns if the session was substantial
-- **python stop checks**: If .py changed, runs ruff/mypy/pytest then clears state
 
-## Auto-Accept Permissions
+- **session-end.js**: writes session artifacts.
+- **evaluate-session.js**: writes session metadata for continuous learning (suggests running `/learn`).
+- **python-stop-checks.js**: runs deeper checks at session end (pytest/mypy if configured).
 
-Use with caution:
-- Enable for trusted, well-defined plans
-- Disable for exploratory work
-- Never use dangerously-skip-permissions flag
-- Prefer explicit tool allowlists in your assistant settings (project-level), rather than blanket skips
+### Stop
 
-## TodoWrite Best Practices
+- **check-console-log.js**: lightweight warning for `console.log`/`debugger` in modified JS/TS files.
 
-Use TodoWrite tool to:
-- Track progress on multi-step tasks
-- Verify understanding of instructions
-- Enable real-time steering
-- Show granular implementation steps
+## Design guidelines
 
-Todo list reveals:
-- Out of order steps
-- Missing items
-- Extra unnecessary items
-- Wrong granularity
-- Misinterpreted requirements
+- Prefer **blocking** only for “high confidence dangerous” actions.
+- Keep **Stop** hooks lightweight (they run often).
+- Never rely on SessionEnd output to “tell the model”; treat SessionEnd as side-effect-only (files/logs).

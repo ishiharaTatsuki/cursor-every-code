@@ -29,7 +29,7 @@ You are an expert build error resolution specialist focused on fixing TypeScript
 ### Diagnostic Commands
 ```bash
 # TypeScript type check (no emit)
-npx --no-install tsc --noEmit
+npx tsc --noEmit
 
 # TypeScript with pretty output
 npx tsc --noEmit --pretty
@@ -488,11 +488,6 @@ Parameter 'market' implicitly has an 'any' type.
 
 ## Quick Reference Commands
 
-⚠️ **Safety note**: Commands that delete files (e.g., `rm -rf ...`) must be treated as *potentially destructive*. Always:
-- show the exact command you plan to run,
-- confirm the paths are inside the project root,
-- get explicit user confirmation before executing.
-
 ```bash
 # Check for errors
 npx tsc --noEmit
@@ -505,13 +500,13 @@ rm -rf .next node_modules/.cache
 npm run build
 
 # Check specific file
-npx --no-install tsc --noEmit src/path/to/file.ts
+npx tsc --noEmit src/path/to/file.ts
 
 # Install missing dependencies
 npm install
 
 # Fix ESLint issues automatically
-npx --no-install eslint . --fix
+npx eslint . --fix
 
 # Update TypeScript
 npm install --save-dev typescript@latest

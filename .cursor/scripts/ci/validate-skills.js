@@ -7,8 +7,6 @@ const fs = require('fs');
 const path = require('path');
 
 const SKILLS_DIR = path.join(__dirname, '../../skills');
-// Folders under skills/ that are containers rather than Cursor "skills".
-const IGNORED_SKILL_DIRS = new Set(['learned']);
 
 function validateSkills() {
   if (!fs.existsSync(SKILLS_DIR)) {
@@ -17,10 +15,7 @@ function validateSkills() {
   }
 
   const entries = fs.readdirSync(SKILLS_DIR, { withFileTypes: true });
-  const dirs = entries
-    .filter(e => e.isDirectory())
-    .map(e => e.name)
-    .filter(name => !IGNORED_SKILL_DIRS.has(name));
+  const dirs = entries.filter(e => e.isDirectory()).map(e => e.name);
   let hasErrors = false;
   let validCount = 0;
 

@@ -1,37 +1,44 @@
 ---
 description: testing
-alwaysApply: false
+alwaysApply: true
 globs:
-  - "**/*.{js,jsx,ts,tsx}"
+  - "**/*"
 ---
 
-# Testing Requirements
+# Testing
 
-## Minimum Test Coverage: 80%
+## Coverage target
 
-Test Types (ALL required):
-1. **Unit Tests** - Individual functions, utilities, components
-2. **Integration Tests** - API endpoints, database operations
-3. **E2E Tests** - Critical user flows (Playwright)
+- **Aim** for ~80%+ on core business logic, but don’t game coverage.
+- Prioritize testing **high-risk** and **high-change** areas.
 
-## Test-Driven Development
+## Test types
 
-MANDATORY workflow:
-1. Write test first (RED)
-2. Run test - it should FAIL
-3. Write minimal implementation (GREEN)
-4. Run test - it should PASS
-5. Refactor (IMPROVE)
-6. Verify coverage (80%+)
+Choose the smallest test that gives confidence:
 
-## Troubleshooting Test Failures
+1. **Unit tests** — pure logic, utilities, small modules
+2. **Integration tests** — boundaries (DB, filesystem, HTTP clients), adapters
+3. **E2E tests** — only for critical user flows / high-value paths
 
-1. Use **tdd-guide** agent
-2. Check test isolation
-3. Verify mocks are correct
-4. Fix implementation, not tests (unless tests are wrong)
+## TDD (recommended)
 
-## Agent Support
+1. Write a failing test (RED)
+2. Make it pass with minimal code (GREEN)
+3. Refactor (keep tests green)
 
-- **tdd-guide** - Use PROACTIVELY for new features, enforces write-tests-first
-- **e2e-runner** - Playwright E2E testing specialist
+## Python defaults
+
+- Unit/integration: `pytest`
+- Coverage: `pytest --cov` (coverage.py)
+- Optional typing: `mypy` or `pyright`
+
+## JS/TS defaults (if present)
+
+- Unit/integration: `vitest` / `jest`
+- E2E: Playwright
+
+## Troubleshooting failures
+
+- Verify test isolation (no shared mutable state)
+- Fix implementation first; change tests only when the test was wrong
+- Reproduce with the smallest command and smallest failing test

@@ -1,36 +1,42 @@
 ---
-description: python coding style
-alwaysApply: false
+description: python-style
+alwaysApply: true
 globs:
-  - "**/*.{py,pyi}"
+  - "**/*.py"
+  - "**/*.pyi"
 ---
 
-# Python Coding Style
+# Python style (project default)
 
-## Format + Lint
-- Default to **ruff format** + **ruff check** when available.
-  - This template runs ruff automatically after editing `.py` (see hooks).
-- Keep imports clean (use `ruff`/`isort`-compatible ordering).
+- Prefer **readability** over cleverness.
+- Add **type hints** for public functions and complex structures.
+- Keep functions small; split responsibilities early.
+- Prefer `pathlib.Path` for filesystem paths.
+- Use explicit exceptions; avoid `except Exception: pass` (if you must, comment why).
 
-## Types
-- Prefer type hints for public APIs and non-trivial internal logic.
-- Use `from __future__ import annotations` if the project targets Python < 3.11.
-- Prefer `typing` primitives (`Sequence`, `Mapping`, `Iterable`) over concrete containers when appropriate.
+## Formatting & linting
 
-## Structure
-- Keep modules small and cohesive; avoid "god" modules.
-- Prefer pure functions for core logic; isolate I/O at boundaries.
-- Use `dataclasses` for simple data containers; use `pydantic` only when you need validation.
+- If available in the repo, prefer:
+  - `ruff format`
+  - `ruff check` (optionally `--fix`)
+- Keep imports sorted (ruff handles this if configured).
 
-## Errors
-- Raise specific exceptions with actionable messages.
-- Avoid `except Exception: pass`.
-- Use `contextlib` and `pathlib` to make resource handling explicit.
+## Error handling
 
-## Logging
-- Use the `logging` module, not `print`, for non-test code.
-- Do not log secrets or PII.
+- Raise domain-specific exceptions (or wrap lower-level exceptions) at boundaries.
+- Log with `logging` (structured/contextual where useful). Avoid `print()` for production code.
 
-## Performance
-- Optimize only after measuring.
-- Prefer vectorized / built-in operations (`sum`, `any`, `all`, comprehensions) over manual loops when it improves clarity.
+## Testing
+
+- Prefer `pytest`.
+- Use fixtures for setup; avoid shared mutable globals in tests.
+- Keep unit tests fast and deterministic; mock IO at boundaries.
+
+## Async
+
+- Don’t mix sync/async blindly; prefer one style per module.
+- If using `asyncio`, keep cancellation and timeouts explicit.
+
+## Notes
+
+This repo is Python-first, but can include Node/TS utilities. JS/TS style rules are scoped to those file extensions.

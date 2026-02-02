@@ -1,92 +1,113 @@
 #!/usr/bin/env node
 /**
- * Continuous Learning - Session Evaluator
+ * Continuous Learning - Session Evaluator (SessionEnd hook)
  *
- * Cross-platform (Windows, macOS, Linux)
+ * Purpose:
+ * - Analyze the session transcript length and write lightweight metadata
+ * - Provide a stable place to store "learning candidates" for later manual /learn
  *
- * Runs on Stop hook to extract reusable patterns from Claude Code sessions
- *
- * Why Stop hook instead of UserPromptSubmit:
- * - Stop runs once at session end (lightweight)
- * - UserPromptSubmit runs every message (heavy, adds latency)
+ * Notes:
+ * - SessionEnd hook output is shown to the user, not injected into the model.
+ *   Therefore this script focuses on side effects (writing files), not prompting the model.
  */
 
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+
 const {
+  getProjectDir,
   getLearnedSkillsDir,
+  getSessionsDir,
   ensureDir,
   readFile,
   countInFile,
+  readStdinJson,
   log
 } = require('../lib/utils');
 
+function resolvePath(projectDir, p) {
+  if (!p) return '';
+  const s = String(p);
+  if (s.startsWith('~')) return path.join(os.homedir(), s.slice(1));
+  if (path.isAbsolute(s)) return s;
+  return path.resolve(projectDir, s);
+}
+
 async function main() {
-  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const projectDir = getProjectDir();
 
-  // Get script directory to find config
-  const scriptDir = __dirname;
-  const configFile = path.join(scriptDir, '..', '..', 'skills', 'continuous-learning', 'config.json');
+  // Config lives in the project repo
+  const configFile = path.join(projectDir, '.cursor', 'skills', 'continuous-learning', 'config.json');
 
-  // Default configuration
+  // Defaults
   let minSessionLength = 10;
   let learnedSkillsPath = getLearnedSkillsDir();
-
-  function resolveConfiguredPath(p) {
-    if (!p || typeof p !== 'string') return p;
-    // Expand ~ to home
-    if (p.startsWith('~')) {
-      return path.join(os.homedir(), p.slice(1));
-    }
-    // Absolute stays absolute
-    if (path.isAbsolute(p)) return p;
-    // Relative paths are resolved from project root
-    return path.resolve(projectDir, p);
-  }
 
   // Load config if exists
   const configContent = readFile(configFile);
   if (configContent) {
     try {
       const config = JSON.parse(configContent);
-      minSessionLength = config.min_session_length || 10;
+      minSessionLength = Number(config.min_session_length || minSessionLength);
 
       if (config.learned_skills_path) {
-        learnedSkillsPath = resolveConfiguredPath(config.learned_skills_path);
+        learnedSkillsPath = resolvePath(projectDir, config.learned_skills_path);
       }
     } catch {
-      // Invalid config, use defaults
+      // ignore invalid config
     }
   }
 
-  // Ensure learned skills directory exists
   ensureDir(learnedSkillsPath);
 
-  // Get transcript path from environment (set by Claude Code)
-  const transcriptPath = process.env.CLAUDE_TRANSCRIPT_PATH;
+  // Hook input JSON
+  const input = await readStdinJson().catch(() => ({}));
+  const transcriptPath =
+    input?.transcript_path ||
+    input?.transcriptPath ||
+    process.env.CLAUDE_TRANSCRIPT_PATH ||
+    '';
+
+  const sessionId = input?.session_id || process.env.CLAUDE_SESSION_ID || 'unknown';
 
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
-    process.exit(0);
+    return;
   }
 
-  // Count user messages in session
   const messageCount = countInFile(transcriptPath, /"type":"user"/g);
 
-  // Skip short sessions
-  if (messageCount < minSessionLength) {
-    log(`[ContinuousLearning] Session too short (${messageCount} messages), skipping`);
-    process.exit(0);
+  // Write metadata regardless (useful for debugging)
+  const sessionsDir = getSessionsDir();
+  const evalDir = ensureDir(path.join(sessionsDir, 'evaluations'));
+
+  const outFile = path.join(evalDir, `${sessionId}.json`);
+  const payload = {
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    user_message_count: messageCount,
+    min_session_length: minSessionLength,
+    learned_skills_path: learnedSkillsPath,
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    fs.writeFileSync(outFile, JSON.stringify(payload, null, 2) + '\n', 'utf8');
+  } catch {
+    // ignore
   }
 
-  // Signal to Claude that session should be evaluated for extractable patterns
-  log(`[ContinuousLearning] Session has ${messageCount} messages - evaluate for extractable patterns`);
-  log(`[ContinuousLearning] Save learned skills to: ${learnedSkillsPath}`);
+  if (messageCount < minSessionLength) {
+    log(`[ContinuousLearning] Session too short (${messageCount} user messages). Metadata: ${outFile}`);
+    return;
+  }
 
-  process.exit(0);
+  log(`[ContinuousLearning] Session has ${messageCount} user messages. Consider running /learn to extract reusable patterns.`);
+  log(`[ContinuousLearning] Learned skills directory: ${learnedSkillsPath}`);
+  log(`[ContinuousLearning] Metadata saved: ${outFile}`);
 }
 
 main().catch(err => {
-  console.error('[ContinuousLearning] Error:', err.message);
+  console.error('[ContinuousLearning] Error:', err?.message || err);
   process.exit(0);
 });

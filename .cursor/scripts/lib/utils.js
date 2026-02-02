@@ -28,19 +28,28 @@ function getClaudeDir() {
 }
 
 /**
+ * Get the current project directory.
+ *
+ * Claude Code provides CLAUDE_PROJECT_DIR when spawning hooks.
+ * Cursor's third-party hooks are expected to provide it as well.
+ * As a fallback, use the current working directory.
+ */
+function getProjectDir() {
+  return process.env.CLAUDE_PROJECT_DIR || process.env.CURSOR_PROJECT_DIR || process.cwd();
+}
+
+/**
  * Get the sessions directory
  */
 function getSessionsDir() {
-  return path.join(getClaudeDir(), 'sessions');
+  return path.join(getProjectDir(), '.cursor', '.sessions');
 }
 
 /**
  * Get the learned skills directory
  */
 function getLearnedSkillsDir() {
-  // Project-local learned patterns (so templates are self-contained)
-  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  return path.join(projectDir, '.cursor', 'skills', 'learned');
+  return path.join(getProjectDir(), '.cursor', 'skills', 'learned');
 }
 
 /**
@@ -383,6 +392,7 @@ module.exports = {
   // Directories
   getHomeDir,
   getClaudeDir,
+  getProjectDir,
   getSessionsDir,
   getLearnedSkillsDir,
   getTempDir,

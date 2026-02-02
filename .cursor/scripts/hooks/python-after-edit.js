@@ -115,14 +115,17 @@ function tryRunTool(projectDir, runnerPrefix, tool, toolModule, args, timeoutMs)
 function main() {
     const input = readStdinJson();
 
-    // Extract file path across common Claude Code / Cursor payload variants
+    // PostToolUse input typically has tool_input.file_path (Claude Code hooks)
     const filePath =
         input?.tool_input?.file_path ||
         input?.tool_input?.filePath ||
-        input?.tool_response?.file_path ||
+        input?.file_path ||
+        input?.filePath ||
+        input?.path ||
         input?.tool_response?.filePath ||
-        input?.tool_output?.file_path ||
+        input?.tool_response?.file_path ||
         input?.tool_output?.filePath ||
+        input?.tool_output?.file_path ||
         "";
 
     if (!filePath || !/\.(py|pyi)$/.test(filePath)) process.exit(0);
