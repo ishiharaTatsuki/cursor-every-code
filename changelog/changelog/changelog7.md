@@ -287,8 +287,6 @@ SessionStartの stdout がコンテキストに入ります。([Claude Code](htt
 
 必要なら、 **このZIPを前提に「P0だけを最小パッチで潰す」具体的な差分案** （`.claude/settings.json` の matcher/exit、必要なhooksスクリプト新設、`.cursor/commands` の参照修正、`.gitignore` 追加、observe.sh安全化）までこちらで一気に提示できます。今回はレビューに徹しましたが、次のアクションに直結する形で出せます。
 
-
-
 以下に、**P0だけを最小パッチで潰した修正版ZIP**と、**差分パッチ（unified diff）**を用意しました。
 （あなたが要望していた「hooksが実際に発火する／ブロックが本当にブロックになる／setup-pmのパス破綻修正」に限定し、 **それ以外の整理（ルール分割・npx安全化・continuous-learningの安全化等）は一切入れていません** 。）
 
@@ -386,3 +384,120 @@ node .cursor/scripts/setup-package-manager.js --detect
 
 これらは **P0-minimalの範囲外**として、今回あえて変更していません。
 必要なら次の段階で「#3だけ」「npx安全化だけ」など、**同じく“最小パッチ単位”でzip出力**できます。
+
+
+
+了解です。アップロードいただいた **修正版ZIP（`cursor-every-code-main.zip`）** をベースに、指定の4点を反映して **統合済みの修正版ZIP** を作成しました。
+
+## ダウンロード
+
+* ✅  **統合修正版ZIP** （4点すべて反映）
+  [Download](sandbox:/mnt/data/cursor-every-code-main-integrated.zip)
+* ✅ **差分パッチ（元ZIP → 統合修正版）**
+  [Download](sandbox:/mnt/data/cursor-every-code-main-integrated.patch)
+
+---
+
+# 反映内容（精密・最小変更で4点を満たす）
+
+## 1) `.claude/skills ↔ .cursor/skills` 参照統一（#3相当）
+
+リポジトリ全体で **`.claude/skills` を参照していた箇所をすべて `.cursor/skills` に統一**しました。
+（コマンド・スキルドキュメント・補助スクリプト・changelog 含め、`".claude/skills"` 文字列が **0件** になるまで置換）
+
+主に修正が入った代表ファイル：
+
+* `.cursor/commands/evolve.md`
+* `.cursor/commands/instinct-import.md`
+* `.cursor/commands/instinct-status.md`
+* `.cursor/commands/learn.md`
+* `.cursor/commands/tdd.md`
+* `.cursor/scripts/skill-create-output.js`
+* `.cursor/skills-optional/continuous-learning*/...`
+* `changelog/changelog/changelog3.md`, `changelog4.md`（参照統一のため）
+
+---
+
+## 2) `npx` の `--no-install` 化 + タイムアウト等の安全化
+
+これは  **現ZIP内で既に要件を満たしていました** （＝統合版でも維持）：
+
+* `.cursor/scripts/hooks/posttool-prettier.js`
+  * ローカル `node_modules/.bin/prettier` 優先
+  * fallback の `npx` は `npx --no-install ...`
+  * **timeout: 30s**
+* `.cursor/scripts/hooks/posttool-tsc.js`
+  * ローカル `node_modules/.bin/tsc` 優先
+  * fallback の `npx` は `npx --no-install ...`
+  * **timeout: 60s**
+
+> ※ hooksで `npx` を走らせる場合、「暗黙インストール」を確実に避ける意味で `--no-install` が必須、また `execFileSync` に timeout を入れて固着を防ぐ、という安全策が入っています（要件どおり）。
+
+---
+
+## 3) `continuous-learning-v2` の `observe.sh` 安全化
+
+`.cursor/skills/continuous-learning-v2/hooks/observe.sh` の  **コード埋め込み型 JSON パース** （`json.loads('''$INPUT_JSON''')`）を撤廃し、**stdin から `json.load(sys.stdin)` で読む方式**へ変更しました。
+
+これで以下が解消されます：
+
+* `'''` などを含む入力で Python 文字列リテラルが壊れるリスク
+* 入力内容が Python コード断片に混入する形式の危険
+
+追加で、実運用で呼べるように **実行権限（0o755）** を付与しています。
+（ZIP内にもパーミッションが保持されるように格納してあります）
+
+---
+
+## 4) ルールの言語別分割（Python / Node の globs 絞り込み）
+
+これも **現ZIPで既に分割・絞り込み済み**だったため、統合版でも維持しています（＝あなたの意図どおりの状態を確定）。
+
+確認できる状態：
+
+* Node/TS向け
+  * `.cursor/rules/coding-style.mdc` / `patterns.mdc` / `testing.mdc`
+  * `globs: "**/*.{js,jsx,ts,tsx}"`、`alwaysApply: false`
+* Python向け
+  * `.cursor/rules/python-style.mdc` / `python-testing.mdc`
+  * `globs: "**/*.py"`（＋ `.pyi`/tests）で限定、`alwaysApply: false`
+* 共通（全体に効かせるもの）は `alwaysApply: true` のまま（security/git-workflow/agents/hooks 等）
+
+---
+
+# 変更ファイル一覧（統合版で実際に差分が出ているもの）
+
+差分パッチにも入っていますが、統合版で更新が入ったのは以下 **14ファイル**です（＝狙い通り、修正範囲は限定）：
+
+* `.cursor/commands/evolve.md`
+* `.cursor/commands/instinct-import.md`
+* `.cursor/commands/instinct-status.md`
+* `.cursor/commands/learn.md`
+* `.cursor/commands/tdd.md`
+* `.cursor/scripts/skill-create-output.js`
+* `.cursor/skills/continuous-learning-v2/hooks/observe.sh`（安全化＋chmod）
+* `.cursor/skills/strategic-compact/suggest-compact.sh`（コメント参照統一）
+* `.cursor/skills-optional/continuous-learning-v2/SKILL.md`
+* `.cursor/skills-optional/continuous-learning/SKILL.md`
+* `.cursor/skills-optional/continuous-learning/config.json`
+* `.cursor/skills-optional/continuous-learning/evaluate-session.sh`
+* `changelog/changelog/changelog3.md`
+* `changelog/changelog/changelog4.md`
+
+---
+
+# 受け取り後の最短セルフチェック（任意）
+
+統合ZIPを展開したディレクトリで、以下が全部 0 件ならOKです：
+
+```bash
+# 参照統一確認
+rg -n "\.claude/skills" .
+
+# observe.sh の危険構文が残っていないこと
+rg -n "json\.loads\('''" .cursor/skills/continuous-learning-v2/hooks/observe.sh
+```
+
+---
+
+必要なら次は、今回「触っていないがテンプレ事故率を下げる」項目（例：`.cursor/skills/learned/` の扱いを明確化、hooksの説明ドキュメント整合、optionalスキルの導入/除外を1コマンド化）を **同じく“最小パッチ単位”**で統合ZIPにして出せます。

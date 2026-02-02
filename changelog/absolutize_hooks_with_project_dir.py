@@ -20,10 +20,10 @@ class Change:
 
 
 # Paths we want to anchor to $CLAUDE_PROJECT_DIR
-# We intentionally limit scope to ".cursor/..." and ".claude/..." so we don't touch "go build ./..." etc.
-SQ_PATH = re.compile(r"'(?P<prefix>\./)?(?P<root>\.cursor|\.claude)(?P<rest>/[^']*)'")
-DQ_PATH = re.compile(r"\"(?P<prefix>\./)?(?P<root>\.cursor|\.claude)(?P<rest>/[^\"]*)\"")
-BARE_PATH = re.compile(r"(?P<lead>(?:^|\s))(?P<prefix>\./)?(?P<root>\.cursor|\.claude)(?P<rest>/[A-Za-z0-9._/\-]+)")
+# We intentionally limit scope to ".cursor/..." and ".cursor/..." so we don't touch "go build ./..." etc.
+SQ_PATH = re.compile(r"'(?P<prefix>\./)?(?P<root>\.cursor|\.cursor)(?P<rest>/[^']*)'")
+DQ_PATH = re.compile(r"\"(?P<prefix>\./)?(?P<root>\.cursor|\.cursor)(?P<rest>/[^\"]*)\"")
+BARE_PATH = re.compile(r"(?P<lead>(?:^|\s))(?P<prefix>\./)?(?P<root>\.cursor|\.cursor)(?P<rest>/[A-Za-z0-9._/\-]+)")
 
 NODE_INLINE = re.compile(r"\bnode\b\s+-(e|p)\b|\bnode\b\s+--eval\b")
 
@@ -108,7 +108,7 @@ def walk_and_patch_hooks(data: Any) -> List[Change]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--file", default=".claude/settings.json", help="Path to settings.json (default: .claude/settings.json)")
+    ap.add_argument("--file", default=".cursor/settings.json", help="Path to settings.json (default: .cursor/settings.json)")
     ap.add_argument("--apply", action="store_true", help="Write changes (default: dry-run)")
     ap.add_argument("--backup", action="store_true", help="Create backup before writing")
     ap.add_argument("--show", type=int, default=30, help="Show first N changes")
@@ -129,7 +129,7 @@ def main() -> int:
     changes = walk_and_patch_hooks(data)
 
     if not changes:
-        print("No hook commands needed changes (already anchored or no .cursor/.claude paths found).")
+        print("No hook commands needed changes (already anchored or no .cursor/.cursor paths found).")
         return 0
 
     print(f"{'APPLY' if args.apply else 'DRY-RUN'}: {len(changes)} command(s) will be updated.")

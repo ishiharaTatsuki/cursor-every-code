@@ -23,7 +23,7 @@ class SyncPaths:
 
     @property
     def claude(self) -> Path:
-        return self.project / ".claude"
+        return self.project / ".cursor"
 
 
 def timestamp() -> str:
@@ -98,7 +98,7 @@ def write_cursor_mcp_placeholder(dst: Path) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--vendor", default=DEFAULT_VENDOR, help="Path to everything-claude-code checkout")
-    ap.add_argument("--project", default=".", help="Project root (where .cursor/.claude will be created)")
+    ap.add_argument("--project", default=".", help="Project root (where .cursor/.cursor will be created)")
     args = ap.parse_args()
 
     paths = SyncPaths(
@@ -111,7 +111,7 @@ def main() -> None:
 
     # ========== Backup existing configs ==========
     backup_if_exists(paths.cursor)
-    backup_if_exists(paths.claude / "settings.json")
+    backup_if_exists(paths.cursor / "settings.json")
 
     # ========== 1) Cursor Commands ==========
     copy_glob_files(paths.vendor / "commands", "*.md", paths.cursor / "commands")
@@ -137,8 +137,8 @@ def main() -> None:
     # Hooks in everything-claude-code call Node scripts; keep them local so vendor can be removed.
     replace_dir(paths.vendor / "scripts", paths.cursor / "scripts")
 
-    # ========== 6) Third-party hooks (Claude Code format) into .claude/settings.json ==========
-    # Cursor can load Claude Code hooks from .claude/settings.json automatically (third-party hooks).
+    # ========== 6) Third-party hooks (Claude Code format) into .cursor/settings.json ==========
+    # Cursor can load Claude Code hooks from .cursor/settings.json automatically (third-party hooks).
     src_hooks_settings = paths.vendor / "hooks" / "hooks.json"
     if src_hooks_settings.exists():
         raw = src_hooks_settings.read_text(encoding="utf-8")
@@ -153,14 +153,14 @@ def main() -> None:
             repl="./.cursor",
         )
 
-        dst_settings = paths.claude / "settings.json"
+        dst_settings = paths.cursor / "settings.json"
         dst_settings.parent.mkdir(parents=True, exist_ok=True)
         dst_settings.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     # ========== 7) MCP placeholder ==========
     write_cursor_mcp_placeholder(paths.cursor / "mcp.json")
 
-    print("✅ Synced everything-claude-code into .cursor/ and .claude/")
+    print("✅ Synced everything-claude-code into .cursor/ and .cursor/")
     print("✅ You can now delete vendor/ecc if you don't need to resync.")
     print("   (To resync later, re-clone vendor/ecc and re-run this script.)")
 
