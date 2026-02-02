@@ -1,5 +1,5 @@
 {
-  "min_session_length": 10,
+  "min_session_length": 5,
   "extraction_threshold": "medium",
   "auto_approve": false,
   "learned_skills_path": "./.cursor/skills/learned/",
