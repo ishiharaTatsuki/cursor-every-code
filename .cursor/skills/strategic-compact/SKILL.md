@@ -1,63 +1,32 @@
----
-name: strategic-compact
-description: Suggests manual context compaction at logical intervals to preserve context through task phases rather than arbitrary auto-compaction.
----
+# Strategic Compact
 
-# Strategic Compact Skill
+Suggest manual compaction at **good breakpoints**, before the context gets so large that quality drops.
 
-Suggests manual `/compact` at strategic points in your workflow rather than relying on arbitrary auto-compaction.
+This repo implements it as a lightweight **PreToolUse hook** that counts tool calls and occasionally reminds you to compact.
 
-## Why Strategic Compaction?
+## What it does
 
-Auto-compaction triggers at arbitrary points:
-- Often mid-task, losing important context
-- No awareness of logical task boundaries
-- Can interrupt complex multi-step operations
+- Counts tool calls (Bash / Write / Edit / MultiEdit).
+- When the count passes a threshold, prints a reminder like:
+  - "Consider running `/compact` soon (after finishing this task)."
+- Applies a cooldown so it doesn’t spam you.
 
-Strategic compaction at logical boundaries:
-- **After exploration, before execution** - Compact research context, keep implementation plan
-- **After completing a milestone** - Fresh start for next phase
-- **Before major context shifts** - Clear exploration context before different task
+## Where it lives
 
-## How It Works
+- Hook script: `./.cursor/scripts/hooks/suggest-compact.js`
+- Hook wiring (third-party hooks): `./.claude/settings.json`
 
-The `suggest-compact.sh` script runs on PreToolUse (Edit/Write) and:
+This repo already wires it in `PreToolUse` by default.
 
-1. **Tracks tool calls** - Counts tool invocations in session
-2. **Threshold detection** - Suggests at configurable threshold (default: 50 calls)
-3. **Periodic reminders** - Reminds every 25 calls after threshold
+## Tuning
 
-## Hook Setup
+Set environment variables in your shell/session:
 
-Add to your `./.claude/settings.json`:
+- `COMPACT_THRESHOLD` (default in script): how many tool calls before suggesting
+- `COMPACT_COOLDOWN_MS` (default in script): minimum time between suggestions
+- `ECC_DISABLE_SUGGEST_COMPACT=1`: disable entirely
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [{
-      "matcher": "tool == \"Edit\" || tool == \"Write\"",
-      "hooks": [{
-        "type": "command",
-        "command": "./.cursor/skills/strategic-compact/suggest-compact.sh"
-      }]
-    }]
-  }
-}
-```
+## Notes
 
-## Configuration
-
-Environment variables:
-- `COMPACT_THRESHOLD` - Tool calls before first suggestion (default: 50)
-
-## Best Practices
-
-1. **Compact after planning** - Once plan is finalized, compact to start fresh
-2. **Compact after debugging** - Clear error-resolution context before continuing
-3. **Don't compact mid-implementation** - Preserve context for related changes
-4. **Read the suggestion** - The hook tells you *when*, you decide *if*
-
-## Related
-
-- [The Longform Guide](https://x.com/affaanmustafa/status/2014040193557471352) - Token optimization section
-- Memory persistence hooks - For state that survives compaction
+- `Stop` hook is **per assistant response**, not session end. For compact suggestions, PreToolUse tends to be a better trigger.
+- The hook is **warn-only**: it never blocks tools.

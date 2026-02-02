@@ -1,112 +1,83 @@
 #!/usr/bin/env bash
-# Continuous Learning v2 - Observation Hook
-#
-# Captures tool use events for pattern analysis.
-# Claude Code / Cursor passes hook data via stdin as JSON.
-
 set -euo pipefail
 
+# Safe observation hook for continuous-learning-v2
+#
+# Usage:
+#   observe.sh pre   < hook_input_json
+#   observe.sh post  < hook_input_json
+#
+# This script avoids code injection by parsing JSON via stdin (no string interpolation).
+
 MODE="${1:-}"
-if [[ "$MODE" != "pre" && "$MODE" != "post" ]]; then
-  echo "Usage: observe.sh pre|post" >&2
-  exit 1
-fi
-
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-CONFIG_DIR="$PROJECT_DIR/.claude/homunculus"
-OBSERVATIONS_FILE="$CONFIG_DIR/observations.jsonl"
-MAX_FILE_SIZE_MB=10
 
-mkdir -p "$CONFIG_DIR"
+# Where to store local state/logs (project-local by default)
+CONFIG_DIR="${ECC_HOMUNCULUS_DIR:-"${PROJECT_DIR}/.claude/homunculus"}"
+OBS_LOG="${CONFIG_DIR}/observations.jsonl"
 
-# Skip if disabled
-if [[ -f "$CONFIG_DIR/disabled" ]]; then
+# Resolve instinct-cli location
+if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]]; then
+  INSTINCT_CLI="${CLAUDE_PLUGIN_ROOT}/scripts/instinct-cli.py"
+else
+  INSTINCT_CLI="${PROJECT_DIR}/.cursor/skills/continuous-learning-v2/scripts/instinct-cli.py"
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  # If python3 isn't available, silently skip.
   exit 0
 fi
 
-# Archive if file too large
-if [[ -f "$OBSERVATIONS_FILE" ]]; then
-  file_size_mb=$(du -m "$OBSERVATIONS_FILE" 2>/dev/null | cut -f1 || echo 0)
-  if [[ "${file_size_mb:-0}" -ge "$MAX_FILE_SIZE_MB" ]]; then
-    archive_dir="$CONFIG_DIR/observations.archive"
-    mkdir -p "$archive_dir"
-    mv "$OBSERVATIONS_FILE" "$archive_dir/observations-$(date +%Y%m%d-%H%M%S).jsonl"
-  fi
-fi
-
-# Read stdin (may be empty)
+# Read full input JSON from stdin
 INPUT_JSON="$(cat)"
-if [[ -z "${INPUT_JSON}" ]]; then
-  exit 0
+
+EVENT="unknown"
+if [[ "${MODE}" == "pre" ]]; then
+  EVENT="tool_start"
+elif [[ "${MODE}" == "post" ]]; then
+  EVENT="tool_complete"
 fi
 
-timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+mkdir -p "${CONFIG_DIR}"
 
-# Parse JSON safely (no shell interpolation into Python code)
-python3 <(cat <<'PY'
-import json
-import sys
+# Build a sanitized observation JSON (avoid embedding large file contents)
+OBSERVATION_JSON="$(printf '%s' "${INPUT_JSON}" | python3 - "${EVENT}" <<'PY'
+import json, sys, datetime
 
-mode = sys.argv[1]
-timestamp = sys.argv[2]
-out_path = sys.argv[3]
-
-raw = sys.stdin.read()
-if not raw.strip():
-    sys.exit(0)
-
-def trunc(v: object, limit: int = 5000) -> str:
-    try:
-        if isinstance(v, (dict, list)):
-            s = json.dumps(v, ensure_ascii=False)
-        else:
-            s = str(v)
-    except Exception:
-        s = "<unserializable>"
-    return s[:limit]
+event = sys.argv[1] if len(sys.argv) > 1 else "unknown"
 
 try:
-    data = json.loads(raw)
+    data = json.load(sys.stdin)
+except Exception:
+    data = {}
 
-    tool_name = data.get("tool_name") or data.get("tool") or "unknown"
-    tool_input = data.get("tool_input") or data.get("input") or {}
-    tool_output = data.get("tool_output") or data.get("output") or ""
-    session_id = data.get("session_id") or "unknown"
+tool = data.get("tool_name") or data.get("tool") or data.get("toolName") or ""
+ti = data.get("tool_input") or data.get("toolInput") or {}
 
-    event = "tool_start" if mode == "pre" else "tool_complete"
+# Keep only a small subset of tool_input to avoid huge logs
+safe_ti = {}
+for k in ("command", "file_path", "filePath", "path", "args", "cwd"):
+    if k in ti and ti[k] is not None:
+        safe_ti[k] = ti[k]
 
-    obs = {
-        "timestamp": timestamp,
-        "event": event,
-        "tool": tool_name,
-        "session": session_id,
-    }
-    if mode == "pre":
-        obs["input"] = trunc(tool_input)
-    else:
-        obs["output"] = trunc(tool_output)
+obs = {
+    "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+    "event": event,
+    "session_id": data.get("session_id") or data.get("sessionId"),
+    "tool": tool,
+    "tool_input": safe_ti,
+}
 
-except Exception as e:
-    obs = {
-        "timestamp": timestamp,
-        "event": "parse_error",
-        "error": str(e),
-        "raw": trunc(raw, 1000),
-    }
-
-with open(out_path, "a", encoding="utf-8") as f:
-    f.write(json.dumps(obs, ensure_ascii=False) + "\n")
-
+print(json.dumps(obs, ensure_ascii=False))
 PY
-) "$MODE" "$timestamp" "$OBSERVATIONS_FILE" <<<"$INPUT_JSON"
+)"
 
-# Signal observer if running
-OBSERVER_PID_FILE="$CONFIG_DIR/.observer.pid"
-if [[ -f "$OBSERVER_PID_FILE" ]]; then
-  observer_pid=$(cat "$OBSERVER_PID_FILE" || true)
-  if [[ -n "$observer_pid" ]] && kill -0 "$observer_pid" 2>/dev/null; then
-    kill -USR1 "$observer_pid" 2>/dev/null || true
-  fi
+# Append to local log
+printf '%s\n' "${OBSERVATION_JSON}" >> "${OBS_LOG}"
+
+# Send to instinct-cli if present (non-blocking)
+if [[ -f "${INSTINCT_CLI}" ]]; then
+  printf '%s' "${OBSERVATION_JSON}" | python3 "${INSTINCT_CLI}" observe --event "${EVENT}" >/dev/null 2>&1 || true
 fi
 
 exit 0

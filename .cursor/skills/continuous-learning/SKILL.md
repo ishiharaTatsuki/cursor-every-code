@@ -9,7 +9,7 @@ Automatically evaluates Claude Code sessions on end to extract reusable patterns
 
 ## How It Works
 
-This skill runs as a **Stop hook** at the end of each session:
+This skill runs as a **SessionEnd hook** at the end of each session:
 
 1. **Session Evaluation**: Checks if session has enough messages (default: 10+)
 2. **Pattern Detection**: Identifies extractable patterns from the session
@@ -52,26 +52,26 @@ Edit `config.json` to customize:
 
 ## Hook Setup
 
-Add to your `./.claude/settings.json`:
+Configuration lives in `./.claude/settings.json` (third-party hooks). This repo already includes a working default, but here's the relevant shape:
 
 ```json
 {
   "hooks": {
-    "Stop": [{
+    "SessionEnd": [{
       "matcher": "*",
       "hooks": [{
         "type": "command",
-        "command": "./.cursor/skills/continuous-learning/evaluate-session.sh"
+        "command": "node \"$CLAUDE_PROJECT_DIR/.cursor/scripts/hooks/evaluate-session.js\""
       }]
     }]
   }
 }
 ```
 
-## Why Stop Hook?
+## Why SessionEnd Hook?
 
 - **Lightweight**: Runs once at session end
-- **Non-blocking**: Doesn't add latency to every message
+- **Non-blocking**: Doesn't add latency to every message/tool call
 - **Complete context**: Has access to full session transcript
 
 ## Related
@@ -89,7 +89,7 @@ Homunculus v2 takes a more sophisticated approach:
 
 | Feature | Our Approach | Homunculus v2 |
 |---------|--------------|---------------|
-| Observation | Stop hook (end of session) | PreToolUse/PostToolUse hooks (100% reliable) |
+| Observation | SessionEnd hook (end of session) | PreToolUse/PostToolUse hooks (100% reliable) |
 | Analysis | Main context | Background agent (Composer 1) |
 | Granularity | Full skills | Atomic "instincts" |
 | Confidence | None | 0.3-0.9 weighted |
@@ -107,4 +107,4 @@ Homunculus v2 takes a more sophisticated approach:
 4. **Domain tagging** - code-style, testing, git, debugging, etc.
 5. **Evolution path** - Cluster related instincts into skills/commands
 
-See: `/Users/affoon/Documents/tasks/12-continuous-learning-v2.md` for full spec.
+See: your project notes/spec for a full v2 enhancement list.

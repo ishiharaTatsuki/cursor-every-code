@@ -1,8 +1,3 @@
----
-name: project-guidelines-example
-description: Example template for project-specific guidelines (edit for your repo).
----
-
 # Project Guidelines Skill (Example)
 
 This is an example of a project-specific skill. Use this as a template for your own projects.

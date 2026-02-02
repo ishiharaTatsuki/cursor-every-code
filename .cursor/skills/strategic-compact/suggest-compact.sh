@@ -1,5 +1,9 @@
 #!/bin/bash
 # Strategic Compact Suggester
+#
+# Legacy: this shell version is kept for reference.
+# Prefer the Node hook: ./.cursor/scripts/hooks/suggest-compact.js
+
 # Runs on PreToolUse or periodically to suggest manual compaction at logical intervals
 #
 # Why manual over auto-compact:

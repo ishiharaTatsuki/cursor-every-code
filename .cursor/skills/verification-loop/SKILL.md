@@ -1,8 +1,3 @@
----
-name: verification-loop
-description: Lightweight verification checklist to reduce mistakes before final answers.
----
-
 # Verification Loop Skill
 
 A comprehensive verification system for Claude Code sessions.

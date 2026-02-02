@@ -9,10 +9,9 @@
 #   start-observer.sh stop   # Stop running observer
 #   start-observer.sh status # Check if observer is running
 
-set -euo pipefail
+set -e
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-CONFIG_DIR="$PROJECT_DIR/.claude/homunculus"
+CONFIG_DIR="./.claude/homunculus"
 PID_FILE="${CONFIG_DIR}/.observer.pid"
 LOG_FILE="${CONFIG_DIR}/observer.log"
 OBSERVATIONS_FILE="${CONFIG_DIR}/observations.jsonl"
