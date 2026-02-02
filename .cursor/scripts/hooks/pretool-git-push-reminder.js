@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 "use strict";
 
+/**
+ * PreToolUse: Reminder before `git push`.
+ *
+ * Non-blocking by default.
+ */
+
 const fs = require("fs");
 
 function readStdinJson() {
@@ -12,14 +18,25 @@ function readStdinJson() {
   }
 }
 
+function getCommand(input) {
+  return (
+    input?.tool_input?.command ||
+    input?.input?.command ||
+    input?.tool?.command ||
+    ""
+  );
+}
+
 function main() {
   const input = readStdinJson();
-  const cmd = String(input?.tool_input?.command || "");
+  const cmd = String(getCommand(input) || "").trim();
+  if (!cmd) process.exit(0);
 
-  if (!/\bgit\s+push\b/.test(cmd)) process.exit(0);
+  if (/\bgit\s+push\b/i.test(cmd)) {
+    console.error("[Hook] Reminder: review changes before pushing.");
+    console.error("[Hook] Suggested: git status && git diff --stat && git diff");
+  }
 
-  console.error("[Hook] Review changes before push...");
-  console.error("[Hook] Continuing with push (remove this hook to add interactive review)");
   process.exit(0);
 }
 

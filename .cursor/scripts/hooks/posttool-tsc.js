@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 "use strict";
 
+/**
+ * PostToolUse: Run a quick TypeScript check after editing TS files.
+ *
+ * Safety:
+ * - Prefer local node_modules/.bin/tsc
+ * - Fallback to `npx --no-install tsc`
+ * - Hard timeout
+ */
+
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
-const { getPackageManager } = require("../lib/package-manager");
 
 function readStdinJson() {
   try {
@@ -13,6 +21,16 @@ function readStdinJson() {
   } catch {
     return {};
   }
+}
+
+function getFilePath(input) {
+  return (
+    input?.tool_input?.file_path ||
+    input?.tool_input?.filePath ||
+    input?.input?.file_path ||
+    input?.input?.filePath ||
+    ""
+  );
 }
 
 function fileExists(p) {
@@ -24,99 +42,79 @@ function fileExists(p) {
   }
 }
 
-function resolveLocalBin(projectDir, name) {
-  const base = path.join(projectDir, "node_modules", ".bin");
-  const unix = path.join(base, name);
-  const win = path.join(base, `${name}.cmd`);
-  if (fileExists(unix)) return unix;
-  if (fileExists(win)) return win;
-  return "";
+function findNearestTsconfig(startDir, stopDir) {
+  let dir = startDir;
+  const stop = path.resolve(stopDir);
+
+  while (true) {
+    const cand = path.join(dir, "tsconfig.json");
+    if (fileExists(cand)) return { dir, tsconfig: cand };
+
+    const parent = path.dirname(dir);
+    if (dir === parent) return null;
+    if (path.resolve(dir) === stop) return null;
+    dir = parent;
+  }
 }
 
-function findUp(dir, filename) {
-  let cur = dir;
+function findLocalTsc(startDir, stopDir) {
+  let dir = startDir;
+  const stop = path.resolve(stopDir);
+  const rel = process.platform === "win32" ? "node_modules/.bin/tsc.cmd" : "node_modules/.bin/tsc";
+
   while (true) {
-    const candidate = path.join(cur, filename);
-    if (fileExists(candidate)) return candidate;
-    const parent = path.dirname(cur);
-    if (parent === cur) return "";
-    cur = parent;
+    const cand = path.join(dir, rel);
+    if (fileExists(cand)) return cand;
+
+    const parent = path.dirname(dir);
+    if (dir === parent) return null;
+    if (path.resolve(dir) === stop) return null;
+    dir = parent;
+  }
+}
+
+function run(bin, args, cwd, timeoutMs) {
+  try {
+    execFileSync(bin, args, {
+      cwd,
+      stdio: ["ignore", "ignore", "pipe"],
+      timeout: timeoutMs,
+    });
+    return { ok: true, stderr: "" };
+  } catch (err) {
+    const stderr = (err?.stderr || "").toString();
+    return { ok: false, stderr };
   }
 }
 
 function main() {
   const input = readStdinJson();
-  const p = String(input?.tool_input?.file_path || "");
-  if (!p || !/\.(ts|tsx)$/.test(p)) process.exit(0);
-
   const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  const abs = path.isAbsolute(p) ? p : path.join(projectDir, p);
-  if (!fileExists(abs)) process.exit(0);
 
-  const startDir = path.dirname(abs);
-  const tsconfig = findUp(startDir, "tsconfig.json");
-  if (!tsconfig) process.exit(0);
+  const fpRaw = String(getFilePath(input) || "");
+  if (!fpRaw) process.exit(0);
+  if (!/\.(ts|tsx)$/.test(fpRaw)) process.exit(0);
 
-  const cwd = path.dirname(tsconfig);
+  const absPath = path.isAbsolute(fpRaw) ? fpRaw : path.join(projectDir, fpRaw);
+  if (!fileExists(absPath)) process.exit(0);
 
-  // Prefer local tsc from node_modules to avoid downloads.
-  const localTsc = resolveLocalBin(projectDir, "tsc");
+  const fileDir = path.dirname(absPath);
+  const tsconfigHit = findNearestTsconfig(fileDir, projectDir);
+  if (!tsconfigHit) process.exit(0);
 
-  let stdout = "";
-  let stderr = "";
-  try {
-    if (localTsc) {
-      stdout = execFileSync(localTsc, ["--noEmit", "--pretty", "false"], {
-        cwd,
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-        timeout: 60000,
-      });
-    } else {
-      const pm = getPackageManager({ projectDir }).name;
-      if (pm === "pnpm") {
-        stdout = execFileSync("pnpm", ["exec", "tsc", "--noEmit", "--pretty", "false"], {
-          cwd,
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "pipe"],
-          timeout: 60000,
-        });
-      } else if (pm === "yarn") {
-        stdout = execFileSync("yarn", ["tsc", "--noEmit", "--pretty", "false"], {
-          cwd,
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "pipe"],
-          timeout: 60000,
-        });
-      } else {
-        // npm default: avoid auto-install
-        stdout = execFileSync("npx", ["--no-install", "tsc", "--noEmit", "--pretty", "false"], {
-          cwd,
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "pipe"],
-          timeout: 60000,
-        });
-      }
-    }
-  } catch (e) {
-    stdout = String(e.stdout || "");
-    stderr = String(e.stderr || "");
-  }
+  const localTsc = findLocalTsc(tsconfigHit.dir, projectDir);
+  const timeoutMs = 60_000;
+  const args = ["--noEmit", "--pretty", "false", "--project", tsconfigHit.tsconfig];
 
-  const combined = (stdout + "\n" + stderr).trim();
-  if (!combined) process.exit(0);
+  const res = localTsc
+    ? run(localTsc, args, projectDir, timeoutMs)
+    : run("npx", ["--no-install", "tsc", ...args], projectDir, timeoutMs);
 
-  // Try to surface relevant lines.
-  const rel = path.relative(cwd, abs).replace(/\\/g, "/");
-  const base = path.basename(abs);
-
-  const lines = combined
-    .split("\n")
-    .filter((l) => l.includes(rel) || l.includes(base) || l.includes(abs))
-    .slice(0, 10);
-
-  if (lines.length) {
-    console.error(lines.join("\n"));
+  if (!res.ok && res.stderr) {
+    // Print a short, actionable excerpt.
+    const lines = res.stderr.split("\n").filter(Boolean);
+    console.error("[Hook] TypeScript check found errors (excerpt):");
+    console.error(lines.slice(0, 12).join("\n"));
   }
 
   process.exit(0);

@@ -9,7 +9,7 @@
  * debug statements before committing.
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 
 let data = '';
@@ -23,7 +23,7 @@ process.stdin.on('end', () => {
   try {
     // Check if we're in a git repository
     try {
-      execSync('git rev-parse --git-dir', { stdio: 'pipe' });
+      execFileSync('git', ['rev-parse', '--git-dir'], { stdio: 'pipe' });
     } catch {
       // Not in a git repo, just pass through the data
       console.log(data);
@@ -31,7 +31,7 @@ process.stdin.on('end', () => {
     }
 
     // Get list of modified files
-    const files = execSync('git diff --name-only HEAD', {
+    const files = execFileSync('git', ['diff', '--name-only', 'HEAD'], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
     })

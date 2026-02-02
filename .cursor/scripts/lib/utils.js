@@ -38,7 +38,9 @@ function getSessionsDir() {
  * Get the learned skills directory
  */
 function getLearnedSkillsDir() {
-  return path.join(getClaudeDir(), 'skills', 'learned');
+  // Project-local learned patterns (so templates are self-contained)
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  return path.join(projectDir, '.cursor', 'skills', 'learned');
 }
 
 /**

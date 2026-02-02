@@ -1,5 +1,5 @@
 ---
-description: testing (js/ts)
+description: testing
 alwaysApply: false
 globs:
   - "**/*.{js,jsx,ts,tsx}"

@@ -1,5 +1,5 @@
 ---
-description: coding style (js/ts)
+description: coding style
 alwaysApply: false
 globs:
   - "**/*.{js,jsx,ts,tsx}"

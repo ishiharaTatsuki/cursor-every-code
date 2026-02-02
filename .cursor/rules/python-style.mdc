@@ -1,16 +1,36 @@
 ---
-description: python style
+description: python coding style
 alwaysApply: false
 globs:
-  - "**/*.py"
-  - "**/*.pyi"
+  - "**/*.{py,pyi}"
 ---
 
-# Python Style
+# Python Coding Style
 
-- Prefer `ruff format` and `ruff check` as the default formatter/linter when available.
-- Use type hints for public APIs; avoid `Any` unless justified.
-- Avoid mutable default arguments (e.g., `def f(x=[])`).
-- Avoid side effects at import time.
-- Prefer `pathlib.Path` over string paths.
-- Use `logging` (not `print`) for non-CLI code.
+## Format + Lint
+- Default to **ruff format** + **ruff check** when available.
+  - This template runs ruff automatically after editing `.py` (see hooks).
+- Keep imports clean (use `ruff`/`isort`-compatible ordering).
+
+## Types
+- Prefer type hints for public APIs and non-trivial internal logic.
+- Use `from __future__ import annotations` if the project targets Python < 3.11.
+- Prefer `typing` primitives (`Sequence`, `Mapping`, `Iterable`) over concrete containers when appropriate.
+
+## Structure
+- Keep modules small and cohesive; avoid "god" modules.
+- Prefer pure functions for core logic; isolate I/O at boundaries.
+- Use `dataclasses` for simple data containers; use `pydantic` only when you need validation.
+
+## Errors
+- Raise specific exceptions with actionable messages.
+- Avoid `except Exception: pass`.
+- Use `contextlib` and `pathlib` to make resource handling explicit.
+
+## Logging
+- Use the `logging` module, not `print`, for non-test code.
+- Do not log secrets or PII.
+
+## Performance
+- Optimize only after measuring.
+- Prefer vectorized / built-in operations (`sum`, `any`, `all`, comprehensions) over manual loops when it improves clarity.

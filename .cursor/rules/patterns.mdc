@@ -1,5 +1,5 @@
 ---
-description: patterns (js/ts)
+description: patterns
 alwaysApply: false
 globs:
   - "**/*.{js,jsx,ts,tsx}"

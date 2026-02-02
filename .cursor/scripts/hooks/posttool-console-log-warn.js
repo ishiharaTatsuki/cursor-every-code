@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 "use strict";
 
+/**
+ * PostToolUse: Warn if an edited JS/TS file contains console.log.
+ *
+ * Non-blocking.
+ */
+
 const fs = require("fs");
 const path = require("path");
 
@@ -13,45 +19,44 @@ function readStdinJson() {
   }
 }
 
-function fileExists(p) {
-  try {
-    fs.accessSync(p);
-    return true;
-  } catch {
-    return false;
-  }
+function getFilePath(input) {
+  return (
+    input?.tool_input?.file_path ||
+    input?.tool_input?.filePath ||
+    input?.input?.file_path ||
+    input?.input?.filePath ||
+    ""
+  );
 }
 
 function main() {
   const input = readStdinJson();
-  const p = String(input?.tool_input?.file_path || "");
-  if (!p || !/\.(ts|tsx|js|jsx)$/.test(p)) process.exit(0);
-
   const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  const abs = path.isAbsolute(p) ? p : path.join(projectDir, p);
-  if (!fileExists(abs)) process.exit(0);
 
-  let content = "";
-  try {
-    content = fs.readFileSync(abs, "utf8");
-  } catch {
-    process.exit(0);
-  }
+  const fpRaw = String(getFilePath(input) || "");
+  if (!fpRaw) process.exit(0);
+  if (!/\.(ts|tsx|js|jsx)$/.test(fpRaw)) process.exit(0);
 
-  const lines = content.split("\n");
-  const matches = [];
+  const absPath = path.isAbsolute(fpRaw) ? fpRaw : path.join(projectDir, fpRaw);
+  if (!fs.existsSync(absPath)) process.exit(0);
+
+  const content = fs.readFileSync(absPath, "utf8");
+  if (!content.includes("console.log")) process.exit(0);
+
+  // Provide small excerpt with line numbers.
+  const lines = content.split(/\r?\n/);
+  const hits = [];
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.includes("console.log")) {
-      matches.push(`${i + 1}: ${line.trim()}`);
+    if (lines[i].includes("console.log")) {
+      hits.push(`${i + 1}: ${lines[i].trim()}`);
+      if (hits.length >= 5) break;
     }
   }
 
-  if (matches.length) {
-    console.error("[Hook] WARNING: console.log found in " + p);
-    matches.slice(0, 5).forEach((m) => console.error(m));
-    console.error("[Hook] Remove console.log before committing");
-  }
+  const rel = path.relative(projectDir, absPath).replace(/\\/g, "/");
+  console.error(`[Hook] WARNING: console.log detected in ${rel}`);
+  console.error(hits.join("\n"));
+  console.error("[Hook] Remove debug logs before committing.");
 
   process.exit(0);
 }

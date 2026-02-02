@@ -7,19 +7,50 @@ const fs = require('fs');
 const path = require('path');
 
 const HOOKS_FILE = path.join(__dirname, '../../hooks/hooks.json');
+const CLAUDE_SETTINGS_FILE = path.join(__dirname, '../../../.claude/settings.json');
 const VALID_EVENTS = ['PreToolUse', 'PostToolUse', 'PreCompact', 'SessionStart', 'SessionEnd', 'Stop', 'Notification', 'SubagentStop'];
+const REPO_ROOT = path.resolve(__dirname, '../../..');
+
+function validateMatcherSyntax(matcher, eventType, index, errors) {
+  if (typeof matcher !== 'string') return;
+  // Claude Code matchers are tool names / regexes, not boolean expressions.
+  if (matcher.includes('tool ==') || matcher.includes('tool_input')) {
+    errors.push(`ERROR: ${eventType}[${index}] matcher looks like an expression (use tool-name matcher like "Bash" or "Edit|Write")`);
+  }
+}
+
+function validateCommandRefs(cmd, eventType, index, hookIndex, errors, warnings) {
+  if (typeof cmd !== 'string') return;
+
+  if (cmd.includes('node -e')) {
+    warnings.push(`WARN: ${eventType}[${index}].hooks[${hookIndex}] uses inline node -e (prefer a checked-in script for auditability)`);
+  }
+
+  const re = /\.cursor\/scripts\/hooks\/[A-Za-z0-9._-]+\.js/g;
+  const matches = cmd.match(re) || [];
+  for (const m of matches) {
+    const abs = path.join(REPO_ROOT, m);
+    if (!fs.existsSync(abs)) {
+      errors.push(`ERROR: ${eventType}[${index}].hooks[${hookIndex}] references missing file: ${m}`);
+    }
+  }
+}
 
 function validateHooks() {
-  if (!fs.existsSync(HOOKS_FILE)) {
-    console.log('No hooks.json found, skipping validation');
+  const targetFile = fs.existsSync(HOOKS_FILE)
+    ? HOOKS_FILE
+    : (fs.existsSync(CLAUDE_SETTINGS_FILE) ? CLAUDE_SETTINGS_FILE : null);
+
+  if (!targetFile) {
+    console.log('No hooks configuration found (.cursor/hooks/hooks.json or .claude/settings.json), skipping validation');
     process.exit(0);
   }
 
   let data;
   try {
-    data = JSON.parse(fs.readFileSync(HOOKS_FILE, 'utf-8'));
+    data = JSON.parse(fs.readFileSync(targetFile, 'utf-8'));
   } catch (e) {
-    console.error(`ERROR: Invalid JSON in hooks.json: ${e.message}`);
+    console.error(`ERROR: Invalid JSON in ${path.basename(targetFile)}: ${e.message}`);
     process.exit(1);
   }
 
@@ -27,18 +58,24 @@ function validateHooks() {
   const hooks = data.hooks || data;
   let hasErrors = false;
   let totalMatchers = 0;
+  const errors = [];
+  const warnings = [];
 
   if (typeof hooks === 'object' && !Array.isArray(hooks)) {
     // Object format: { EventType: [matchers] }
     for (const [eventType, matchers] of Object.entries(hooks)) {
       if (!VALID_EVENTS.includes(eventType)) {
-        console.error(`ERROR: Invalid event type: ${eventType}`);
+        const msg = `ERROR: Invalid event type: ${eventType}`;
+        console.error(msg);
+        errors.push(msg);
         hasErrors = true;
         continue;
       }
 
       if (!Array.isArray(matchers)) {
-        console.error(`ERROR: ${eventType} must be an array`);
+        const msg = `ERROR: ${eventType} must be an array`;
+        console.error(msg);
+        errors.push(msg);
         hasErrors = true;
         continue;
       }
@@ -53,6 +90,8 @@ function validateHooks() {
         if (!matcher.matcher) {
           console.error(`ERROR: ${eventType}[${i}] missing 'matcher' field`);
           hasErrors = true;
+        } else {
+          validateMatcherSyntax(matcher.matcher, eventType, i, errors);
         }
         if (!matcher.hooks || !Array.isArray(matcher.hooks)) {
           console.error(`ERROR: ${eventType}[${i}] missing 'hooks' array`);
@@ -68,6 +107,14 @@ function validateHooks() {
             if (!hook.command || (typeof hook.command !== 'string' && !Array.isArray(hook.command))) {
               console.error(`ERROR: ${eventType}[${i}].hooks[${j}] missing or invalid 'command' field`);
               hasErrors = true;
+            } else {
+              if (typeof hook.command === 'string') {
+                validateCommandRefs(hook.command, eventType, i, j, errors, warnings);
+              } else if (Array.isArray(hook.command)) {
+                for (const part of hook.command) {
+                  validateCommandRefs(part, eventType, i, j, errors, warnings);
+                }
+              }
             }
           }
         }
@@ -81,6 +128,8 @@ function validateHooks() {
       if (!hook.matcher) {
         console.error(`ERROR: Hook ${i} missing 'matcher' field`);
         hasErrors = true;
+      } else {
+        validateMatcherSyntax(hook.matcher, 'hooks', i, errors);
       }
       if (!hook.hooks || !Array.isArray(hook.hooks)) {
         console.error(`ERROR: Hook ${i} missing 'hooks' array`);
@@ -96,6 +145,14 @@ function validateHooks() {
           if (!h.command || (typeof h.command !== 'string' && !Array.isArray(h.command))) {
             console.error(`ERROR: Hook ${i}.hooks[${j}] missing or invalid 'command' field`);
             hasErrors = true;
+          } else {
+            if (typeof h.command === 'string') {
+              validateCommandRefs(h.command, 'hooks', i, j, errors, warnings);
+            } else if (Array.isArray(h.command)) {
+              for (const part of h.command) {
+                validateCommandRefs(part, 'hooks', i, j, errors, warnings);
+              }
+            }
           }
         }
       }
@@ -106,7 +163,14 @@ function validateHooks() {
     process.exit(1);
   }
 
-  if (hasErrors) {
+  // Report non-fatal warnings
+  for (const w of warnings) {
+    console.warn(w);
+  }
+
+  // Report errors
+  if (hasErrors || errors.length) {
+    for (const e of errors) console.error(e);
     process.exit(1);
   }
 

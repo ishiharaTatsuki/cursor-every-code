@@ -4,7 +4,6 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
-const { detectPythonTooling } = require("../lib/tooling");
 
 function readStdinJson() {
     try {
@@ -42,13 +41,33 @@ function fileExists(p) {
     }
 }
 
+function hasCmd(cmd) {
+    const r = spawnSync(cmd, ["--version"], { stdio: "ignore" });
+    return r.status === 0;
+}
+
 function detectRunner(projectDir) {
     // optional override: ECC_PY_RUNNER="uv run" or "poetry run" etc.
     const override = (process.env.ECC_PY_RUNNER || "").trim();
     if (override) return override.split(/\s+/);
 
-    const t = detectPythonTooling(projectDir);
-    if (t.runnerPrefix && t.runnerPrefix.length && t.installed) return t.runnerPrefix;
+    const pyproject = path.join(projectDir, "pyproject.toml");
+    const hasPyproject = fileExists(pyproject);
+    const pyprojectText = hasPyproject ? fs.readFileSync(pyproject, "utf8") : "";
+
+    if (hasCmd("uv") && hasPyproject) return ["uv", "run"];
+    if (
+        hasCmd("poetry") &&
+        (fileExists(path.join(projectDir, "poetry.lock")) || /\[tool\.poetry\]/.test(pyprojectText))
+    )
+        return ["poetry", "run"];
+    if (
+        hasCmd("pdm") &&
+        (fileExists(path.join(projectDir, "pdm.lock")) || /\[tool\.pdm\]/.test(pyprojectText))
+    )
+        return ["pdm", "run"];
+    if (hasCmd("pipenv") && fileExists(path.join(projectDir, "Pipfile"))) return ["pipenv", "run"];
+
     return [];
 }
 
@@ -96,13 +115,14 @@ function tryRunTool(projectDir, runnerPrefix, tool, toolModule, args, timeoutMs)
 function main() {
     const input = readStdinJson();
 
-    // PostToolUse input typically has tool_input.file_path (Claude Code docs) :contentReference[oaicite:2]{index=2}
+    // Extract file path across common Claude Code / Cursor payload variants
     const filePath =
         input?.tool_input?.file_path ||
-        input?.tool_response?.filePath ||
+        input?.tool_input?.filePath ||
         input?.tool_response?.file_path ||
-        input?.tool_output?.filePath ||
+        input?.tool_response?.filePath ||
         input?.tool_output?.file_path ||
+        input?.tool_output?.filePath ||
         "";
 
     if (!filePath || !/\.(py|pyi)$/.test(filePath)) process.exit(0);

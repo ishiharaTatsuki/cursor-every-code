@@ -13,6 +13,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const {
   getLearnedSkillsDir,
   ensureDir,
@@ -22,6 +23,8 @@ const {
 } = require('../lib/utils');
 
 async function main() {
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+
   // Get script directory to find config
   const scriptDir = __dirname;
   const configFile = path.join(scriptDir, '..', '..', 'skills', 'continuous-learning', 'config.json');
@@ -29,6 +32,18 @@ async function main() {
   // Default configuration
   let minSessionLength = 10;
   let learnedSkillsPath = getLearnedSkillsDir();
+
+  function resolveConfiguredPath(p) {
+    if (!p || typeof p !== 'string') return p;
+    // Expand ~ to home
+    if (p.startsWith('~')) {
+      return path.join(os.homedir(), p.slice(1));
+    }
+    // Absolute stays absolute
+    if (path.isAbsolute(p)) return p;
+    // Relative paths are resolved from project root
+    return path.resolve(projectDir, p);
+  }
 
   // Load config if exists
   const configContent = readFile(configFile);
@@ -38,8 +53,7 @@ async function main() {
       minSessionLength = config.min_session_length || 10;
 
       if (config.learned_skills_path) {
-        // Handle ~ in path
-        learnedSkillsPath = config.learned_skills_path.replace(/^./, require('os').homedir());
+        learnedSkillsPath = resolveConfiguredPath(config.learned_skills_path);
       }
     } catch {
       // Invalid config, use defaults
