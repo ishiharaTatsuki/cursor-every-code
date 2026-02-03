@@ -22,7 +22,7 @@ Project Rules / Commands / Skills / Subagents に加え、**Claude Code 互換�
 ---
 
 ## 最小運用ルール
-
+* .cursor, .claude, AGENTS.mdはプロジェクト配下に設置 (pythonの.venvなども同じ階層)
 * 現在のmodelはinheritで記述。IDEなどで検索・置換でmodelを変更する。
 * 重要な変更は `CHANGELOG.md` に記録（推奨）
 * clone後はchangelogフォルダを削除
