@@ -1,0 +1,30 @@
+{
+  "records_root": "records",
+  "default_project": "",
+  "implementation_plan_candidates": [
+    "records/{project}/{project}_implementation_plan.md",
+    "records/{project}/implementation_plan.md",
+    "records/**/implementation_plan*.md"
+  ],
+  "status_candidates": [
+    "records/{project}/status.md",
+    "records/{project}/STATUS.md",
+    "records/**/status*.md"
+  ],
+  "codex_requests_dirname": "requests",
+  "handover_dirname": "handover",
+  "decisions_dirname": "decisions",
+  "date_format": "%Y-%m-%d",
+  "task_id_patterns": [
+    "WP\\d+(?:\\.\\d+)+",
+    "P\\d+-T\\d+(?:\\.\\d+)+",
+    "T\\d+(?:\\.\\d+)+"
+  ],
+  "codex_request_filename_template": "codex_request_{task_id}.md",
+  "codex_request_title_template": "Codex 依頼: {task_id} — {title}",
+  "shell_execution_policy_default": "forbid",
+  "network_access_default": "disabled",
+  "sandbox_default": "workspace-write",
+  "approval_policy_default": "never",
+  "language": "ja"
+}
