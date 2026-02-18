@@ -199,3 +199,16 @@ python .cursor/scripts/ops.py handover --project <project>
 * Codex実装→pytest検収→status更新→コミット
 
 ---
+
+##全体フロー（簡略）
+/uow → 依頼書 TODO 埋める → request-auditor
+  ↓
+codex exec - < 依頼書
+  ↓
+【Codex 実装完了】
+  ↓
+ops-commander（検収）→ /validate-records → 司令塔がテスト実行
+  ↓
+status / progress / handoff 更新 → /validate-records → コミット
+  ↓
+次の UoW: /uow に戻る
