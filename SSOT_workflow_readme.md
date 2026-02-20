@@ -201,15 +201,9 @@ python .cursor/scripts/ops.py handover --project <project>
 ---
 
 ##全体フロー（簡略）
-* /uow → 依頼書 TODO 埋める → request-auditor
-  ↓
-* codex exec - < 依頼書
-  ↓
-*【Codex 実装完了】
-  ↓
-* ops-commander（検収）→ /validate-records → 司令塔がテスト実行
-  ↓
-* status / progress / handoff 更新 → /validate-records → コミット
-  ↓
-* 次の UoW: /uow に戻る
+/uow 実行時:
+  1. 進捗確認 → 2. ops.py uow で依頼書生成 → 3. TODO 記入
+  4. codex_loop.py で実装〜検証を coverage 80% まで自動ループ
+  5. records 更新
+
 
